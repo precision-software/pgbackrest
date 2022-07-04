@@ -139,7 +139,12 @@ storageS3DateTime(time_t authTime)
 /***********************************************************************************************************************************
 Generate an S3 authorization field and add it to the http header.
 
-Based on the excellent documentation at http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html.
+ The general idea is to build up a string containing all of the important request fields and to generate a signature based on that
+ string. The string is organized in a  "canonical" way, so it doesn't matter what order headers are contained in the original request.
+ Finally, the string is discarded, and the signature key is added as a new header field on the original request.
+ The algorithm must precisely match the algorithm used by S3.
+
+ Based on the excellent documentation at http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html.
 
  @param this - S3Storage object.
  @param verb - http command (eg. GET, POST)
@@ -175,7 +180,7 @@ storageS3Auth(
         // Get date from datetime
         const String *date = strSubN(dateTime, 0, 8);
 
-        // Append S3-required fields to the http header.
+        // Append S3-required fields to the request header.
         httpHeaderPut(httpHeader, S3_HEADER_CONTENT_SHA256_STR, payloadHash);
         httpHeaderPut(httpHeader, S3_HEADER_DATE_STR, dateTime);
         httpHeaderPut(httpHeader, HTTP_HEADER_HOST_STR, this->bucketEndpoint);
@@ -183,12 +188,12 @@ storageS3Auth(
         if (this->securityToken != NULL)
             httpHeaderPut(httpHeader, S3_HEADER_TOKEN_STR, this->securityToken);
 
-        // We are generating strings containing 1) a canonical http request, and 2) a list of field names f1;f2;...;fn to be signed.
+        // We are generating strings containing 1) a canonical string for signing, and 2) a list of field names f1;f2;...;fn to be included in header.
         String *signedHeaders = NULL;
-        String *canonicalRequest = strCatFmt(  // Question: Why the newlines? Usually space separated with HTTP protocol included.
+        String *canonicalRequest = strCatFmt(
             strNew(), "%s\n%s\n%s\n", strZ(verb), strZ(path), query == NULL ? "" : strZ(httpQueryRenderP(query)));
 
-        // Loop through the header fields in alphabetical order, appending key:value to the request string.
+        // Loop through the header fields in alphabetical order, appending key:value to the string.
         const StringList *headerList = strLstSort(strLstDup(httpHeaderList(httpHeader)), sortOrderAsc);
         for (unsigned int headerIdx = 0; headerIdx < strLstSize(headerList); headerIdx++)
         {
@@ -197,7 +202,7 @@ storageS3Auth(
             const String *headerKey = strLstGet(headerList, headerIdx);
             const String *headerKeyLower = strLower(strDup(headerKey));
 
-            // Skip authorization and content-length fields since we will be regenerating them for the current header.
+            // Skip authorization and content-length fields since they are regenerated after everything is signed.
             if (strEq(headerKeyLower, HTTP_HEADER_AUTHORIZATION_STR) || strEq(headerKeyLower, HTTP_HEADER_CONTENT_LENGTH_STR))
                 continue;
 
@@ -214,7 +219,7 @@ storageS3Auth(
         // Add the list of field names and the payload hash to the request.
         strCatFmt(canonicalRequest, "\n%s\n%s", strZ(signedHeaders), strZ(payloadHash));
 
-        // Add a hash to the request.
+        // Create a hash of the entire string representing the request.
         const String *stringToSign = strNewFmt(
             AWS4_HMAC_SHA256 "\n%s\n%s/%s/" S3 "/" AWS4_REQUEST "\n%s", strZ(dateTime), strZ(date), strZ(this->region),
             strZ(bufHex(cryptoHashOne(hashTypeSha256, BUFSTR(canonicalRequest)))));
@@ -238,7 +243,7 @@ storageS3Auth(
             MEM_CONTEXT_OBJ_END();
         }
 
-        // Generate authorization header field and add it to the original header.
+        // Generate signature by encrypting the hash, and add the signature to the original request header.
         const String *authorization = strNewFmt(
             AWS4_HMAC_SHA256 " Credential=%s/%s/%s/" S3 "/" AWS4_REQUEST ",SignedHeaders=%s,Signature=%s",
             strZ(this->accessKey), strZ(date), strZ(this->region), strZ(signedHeaders),
@@ -288,6 +293,11 @@ VARIANT_STRDEF_STATIC(S3_JSON_TAG_TOKEN_VAR,                        "Token");
 
 VARIANT_STRDEF_STATIC(S3_JSON_VALUE_SUCCESS_VAR,                    "Success");
 
+/**********************************************************************************
+ *
+ * @param this
+ * @param header
+ */
 static void
 storageS3AuthAuto(StorageS3 *const this, HttpHeader *const header)
 {
@@ -394,14 +404,15 @@ storageS3AuthAuto(StorageS3 *const this, HttpHeader *const header)
     FUNCTION_LOG_RETURN_VOID();
 }
 
+
+STRING_STATIC(S3_STS_HOST_STR,                                      "sts.amazonaws.com");
+#define S3_STS_PORT 443
+
 /***********************************************************************************************************************************
-Automatically get credentials for an associated web identity service account
+Automatically get credentials for an associated web identity service account.
 
 Documentation is found at: https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html
 ***********************************************************************************************************************************/
-STRING_STATIC(S3_STS_HOST_STR,                                      "sts.amazonaws.com");
-#define S3_STS_PORT                                                 443
-
 static void
 storageS3AuthWebId(StorageS3 *const this, const HttpHeader *const header)
 {
@@ -454,7 +465,7 @@ storageS3AuthWebId(StorageS3 *const this, const HttpHeader *const header)
 }
 
 /***********************************************************************************************************************************
-Process S3 request, but don't wait for the response.
+Send S3 request to the host, but don't wait for the response.
 ***********************************************************************************************************************************/
 HttpRequest *
 storageS3RequestAsync(StorageS3 *this, const String *verb, const String *path, StorageS3RequestAsyncParam param)
@@ -590,6 +601,14 @@ storageS3Response(HttpRequest *request, StorageS3ResponseParam param)
     FUNCTION_LOG_RETURN(HTTP_RESPONSE, result);
 }
 
+/***********************************************************************************************************************************
+ * Send am http request and get the response from the S3 server.
+ * @param this - S3 storage object
+ * @param verb - which http command eg. "GET", "POST"
+ * @param path - portion of the URL
+ * @param param - ???
+ * @return response from the S3 server
+ */
 HttpResponse *
 storageS3Request(StorageS3 *this, const String *verb, const String *path, StorageS3RequestParam param)
 {
@@ -784,7 +803,13 @@ storageS3ListInternal(
     FUNCTION_LOG_RETURN_VOID();
 }
 
-/**********************************************************************************************************************************/
+/*********************************************************************************************************************************
+Fetch information about a specific S3 file.
+
+ @param file - the name of the S3 object.
+ @param level - the level of information we are requesting.
+ @param param - information describing the S3 bucket.
+ */
 static StorageInfo
 storageS3Info(THIS_VOID, const String *const file, const StorageInfoLevel level, const StorageInterfaceInfoParam param)
 {
@@ -800,7 +825,7 @@ storageS3Info(THIS_VOID, const String *const file, const StorageInfoLevel level,
     ASSERT(this != NULL);
     ASSERT(file != NULL);
 
-    // Attempt to get file info
+    // Attempt to get file info.
     HttpResponse *const httpResponse = storageS3RequestP(this, HTTP_VERB_HEAD_STR, file, .allowMissing = true);
 
     // Does the file exist?
@@ -825,7 +850,13 @@ storageS3Info(THIS_VOID, const String *const file, const StorageInfoLevel level,
     FUNCTION_LOG_RETURN(STORAGE_INFO, result);
 }
 
-/**********************************************************************************************************************************/
+/*********************************************************************************************************************************
+Get a list of named objects (files) from the S3 bucket (directory).
+ @param path name of the object (file)
+ @param level level of information requested
+ @param callback called for each file name found.
+ @param callbackData passed to the callback function.
+***********************************************************************************************************************************/
 static bool
 storageS3InfoList(
     THIS_VOID, const String *path, StorageInfoLevel level, StorageInfoListCallback callback, void *callbackData,
@@ -1016,6 +1047,14 @@ storageS3PathRemoveCallback(void *callbackData, const StorageInfo *info)
     FUNCTION_TEST_RETURN_VOID();
 }
 
+
+/********************************************************************************************************************************
+ * Delete an object (file) from an s3 bucket (directory).
+ * @param path
+ * @param recurse
+ * @param param
+ * @return
+ */
 static bool
 storageS3PathRemove(THIS_VOID, const String *path, bool recurse, StorageInterfacePathRemoveParam param)
 {
@@ -1086,6 +1125,10 @@ static const StorageInterface storageInterfaceS3 =
     .remove = storageS3Remove,
 };
 
+/*********************************************************************************************************************************
+ Constructor to build an S3 storage object.
+ * @return object wrapped in a generic storage interface.
+ */
 Storage *
 storageS3New(
     const String *path, bool write, StoragePathExpressionCallback pathExpressionFunction, const String *bucket,
