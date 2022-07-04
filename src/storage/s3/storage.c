@@ -1,5 +1,5 @@
 /***********************************************************************************************************************************
-S3 Storage
+S3 Storage.
 ***********************************************************************************************************************************/
 #include "build.auto.h"
 
@@ -137,9 +137,17 @@ storageS3DateTime(time_t authTime)
 }
 
 /***********************************************************************************************************************************
-Generate authorization header and add it to the supplied header list
+Generate an S3 authorization field and add it to the http header.
 
 Based on the excellent documentation at http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html.
+
+ @param this - S3Storage object.
+ @param verb - http command (eg. GET, POST)
+ @param path - path part of URI
+ @param query - list of key:value pairs for query part of URI
+ @param dateTime - current date used for signing.
+ @param httpHeader - list of key:value pairs for http header
+ @param payloadHash - hash to ensure integrity of http body.
 ***********************************************************************************************************************************/
 static void
 storageS3Auth(
@@ -167,7 +175,7 @@ storageS3Auth(
         // Get date from datetime
         const String *date = strSubN(dateTime, 0, 8);
 
-        // Set required headers
+        // Append S3-required fields to the http header.
         httpHeaderPut(httpHeader, S3_HEADER_CONTENT_SHA256_STR, payloadHash);
         httpHeaderPut(httpHeader, S3_HEADER_DATE_STR, dateTime);
         httpHeaderPut(httpHeader, HTTP_HEADER_HOST_STR, this->bucketEndpoint);
@@ -175,33 +183,38 @@ storageS3Auth(
         if (this->securityToken != NULL)
             httpHeaderPut(httpHeader, S3_HEADER_TOKEN_STR, this->securityToken);
 
-        // Generate canonical request and signed headers
-        const StringList *headerList = strLstSort(strLstDup(httpHeaderList(httpHeader)), sortOrderAsc);
+        // We are generating strings containing 1) a canonical http request, and 2) a list of field names f1;f2;...;fn to be signed.
         String *signedHeaders = NULL;
-
-        String *canonicalRequest = strCatFmt(
+        String *canonicalRequest = strCatFmt(  // Question: Why the newlines? Usually space separated with HTTP protocol included.
             strNew(), "%s\n%s\n%s\n", strZ(verb), strZ(path), query == NULL ? "" : strZ(httpQueryRenderP(query)));
 
+        // Loop through the header fields in alphabetical order, appending key:value to the request string.
+        const StringList *headerList = strLstSort(strLstDup(httpHeaderList(httpHeader)), sortOrderAsc);
         for (unsigned int headerIdx = 0; headerIdx < strLstSize(headerList); headerIdx++)
         {
+
+            // Get the key of the field, lower case.
             const String *headerKey = strLstGet(headerList, headerIdx);
             const String *headerKeyLower = strLower(strDup(headerKey));
 
-            // Skip the authorization (exists on retry) and content-length headers since they do not need to be signed
+            // Skip authorization and content-length fields since we will be regenerating them for the current header.
             if (strEq(headerKeyLower, HTTP_HEADER_AUTHORIZATION_STR) || strEq(headerKeyLower, HTTP_HEADER_CONTENT_LENGTH_STR))
                 continue;
 
+            // Add the field's "name:value" pair to the request string.
             strCatFmt(canonicalRequest, "%s:%s\n", strZ(headerKeyLower), strZ(httpHeaderGet(httpHeader, headerKey)));
 
+            // Maintain a semicolon separated list of field names: f1;f2;...;fn.  Note the first name does not need a semicolon.
             if (signedHeaders == NULL)
                 signedHeaders = strCat(strNew(), headerKeyLower);
             else
                 strCatFmt(signedHeaders, ";%s", strZ(headerKeyLower));
         }
 
+        // Add the list of field names and the payload hash to the request.
         strCatFmt(canonicalRequest, "\n%s\n%s", strZ(signedHeaders), strZ(payloadHash));
 
-        // Generate string to sign
+        // Add a hash to the request.
         const String *stringToSign = strNewFmt(
             AWS4_HMAC_SHA256 "\n%s\n%s/%s/" S3 "/" AWS4_REQUEST "\n%s", strZ(dateTime), strZ(date), strZ(this->region),
             strZ(bufHex(cryptoHashOne(hashTypeSha256, BUFSTR(canonicalRequest)))));
@@ -225,7 +238,7 @@ storageS3Auth(
             MEM_CONTEXT_OBJ_END();
         }
 
-        // Generate authorization header
+        // Generate authorization header field and add it to the original header.
         const String *authorization = strNewFmt(
             AWS4_HMAC_SHA256 " Credential=%s/%s/%s/" S3 "/" AWS4_REQUEST ",SignedHeaders=%s,Signature=%s",
             strZ(this->accessKey), strZ(date), strZ(this->region), strZ(signedHeaders),
@@ -441,7 +454,7 @@ storageS3AuthWebId(StorageS3 *const this, const HttpHeader *const header)
 }
 
 /***********************************************************************************************************************************
-Process S3 request
+Process S3 request, but don't wait for the response.
 ***********************************************************************************************************************************/
 HttpRequest *
 storageS3RequestAsync(StorageS3 *this, const String *verb, const String *path, StorageS3RequestAsyncParam param)

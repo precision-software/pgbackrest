@@ -15,11 +15,12 @@ typedef struct StorageS3 StorageS3;
 /***********************************************************************************************************************************
 Functions
 ***********************************************************************************************************************************/
-// Perform async request
+
+/** An Async request. */
 typedef struct StorageS3RequestAsyncParam
 {
     VAR_PARAM_HEADER;
-    const HttpHeader *header;                                       // Headers
+    const HttpHeader *header;                                       // Http Headers
     const HttpQuery *query;                                         // Query parameters
     const Buffer *content;                                          // Request content
     bool sseKms;                                                    // Enable server-side encryption?
