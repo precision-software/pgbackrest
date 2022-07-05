@@ -92,7 +92,7 @@ sckServerAccept(THIS_VOID, IoSession *const session)
     {
         // Accept the socket connection
         struct sockaddr_in addr;
-        unsigned int len = sizeof(addr);
+        socklen_t len = sizeof(addr);
 
         int serverSocket = accept(this->socket, (struct sockaddr *)&addr, &len);
 

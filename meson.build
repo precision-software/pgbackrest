@@ -37,6 +37,9 @@ if host_machine.system() == 'linux'
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
 elif host_machine.system() == 'darwin'
     add_global_arguments('-D_DARWIN_C_SOURCE', language : 'c')
+elif host_machine.system() == 'cygwin'
+    add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
+    add_global_arguments('-DSA_NOCLDWAIT=0', language : 'c')   # Cygwin doesn't emulate this sigaction flag.
 endif
 
 ####################################################################################################################################
@@ -86,6 +89,9 @@ warning_disable = [
 
     # Warn when a switch case falls through. Disable because this an useful aspect of switches and tests should catch problems.
     '-Wno-implicit-fallthrough',
+
+    # Warn when a char is used as an array subscript
+    '-Wno-char-subscripts',
 ]
 
 add_project_arguments(cc.get_supported_arguments(warning_enable, warning_disable), language: 'c')

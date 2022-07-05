@@ -6,6 +6,7 @@ Restore File
 #include <fcntl.h>
 #include <unistd.h>
 #include <utime.h>
+#include <sys/types.h>
 
 #include "command/restore/file.h"
 #include "common/crypto/cipherBlock.h"
