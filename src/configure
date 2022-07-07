@@ -3127,7 +3127,7 @@ case $host_os in
         ;;
 
     linux*)
-        CPPFLAGS="${CPPFLAGS} -D_POSIX_C_SOURCE=200809L -DXXX"
+        CPPFLAGS="${CPPFLAGS} -D_POSIX_C_SOURCE=200809L"
 
         ;;
 
@@ -5679,4 +5679,4 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
-# Generated from src/build/configure.ac sha1 2c27f9939163d9c39dbd004689988fde45f40afb
+# Generated from src/build/configure.ac sha1 fb86e860a3e7be714920bafc6f9ed86ad4ce3d76

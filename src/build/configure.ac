@@ -24,7 +24,7 @@ case $host_os in
         ;;
 
     linux*)
-        AC_SUBST(CPPFLAGS, "${CPPFLAGS} -D_POSIX_C_SOURCE=200809L -DXXX")
+        AC_SUBST(CPPFLAGS, "${CPPFLAGS} -D_POSIX_C_SOURCE=200809L")
         ;;
 
     cygwin)
