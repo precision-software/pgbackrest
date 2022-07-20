@@ -501,7 +501,7 @@ eval
         # Copy the repo
         executeTest(
             "git -C ${strBackRestBase} ls-files -c --others --exclude-standard |" .
-                " rsync -rtW --delete --files-from=- --exclude=test/result" .
+                " rsync -rLtW --delete --files-from=- --exclude=test/result" .
                 # This option is not supported on MacOS. The eventual plan is to remove the need for it.
                 (trim(`uname`) ne 'Darwin' ? ' --ignore-missing-args' : '') .
                 " ${strBackRestBase}/ ${strRepoCachePath}");
@@ -536,10 +536,10 @@ eval
 
         # Build code
         executeTest(
-            "ninja -C ${strBuildPath}" . ($bMinGen ? '' : ' build-config build-error') . ' build-postgres' .
-            ($bMinGen ? '' : " && ${strBuildPath}/src/build-config ${strBackRestBase}/src") .
-            ($bMinGen ? '' : " && ${strBuildPath}/src/build-error ${strBackRestBase}/src") .
-            " && cd $strRepoCachePath/src && ${strBuildPath}/src/build-postgres");
+            "ninja -C ${strBuildPath} src/build-code" .
+            ($bMinGen ? '' : " && ${strBuildPath}/src/build-code config ${strBackRestBase}/src") .
+            ($bMinGen ? '' : " && ${strBuildPath}/src/build-code error ${strBackRestBase}/src") .
+            " && cd $strRepoCachePath/src && ${strBuildPath}/src/build-code postgres");
 
         if ($bGenOnly)
         {
@@ -784,7 +784,7 @@ eval
                             "bash -c 'git clone https://salsa.debian.org/postgresql/pgbackrest.git /root/package-src 2>&1'");
 
                         executeTest(
-                            "rsync -r --exclude=.vagrant --exclude=.git --exclude=test/result ${strBackRestBase}/" .
+                            "rsync -rL --exclude=.vagrant --exclude=.git --exclude=test/result ${strBackRestBase}/" .
                                 " ${strBuildPath}/");
                         executeTest(
                             ($strVm ne VM_NONE ? "docker exec -i test-build " : '') .

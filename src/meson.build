@@ -1,21 +1,4 @@
 ####################################################################################################################################
-# It is very easy to get into confusing states when the source directory contains an in-place build, e.g. the wrong build.auto.h
-# will be used. So just refuse to build in this case.
-####################################################################################################################################
-if import('fs').exists(meson.current_source_dir() / 'build.auto.h')
-  error('''
-
-Non-clean source code directory detected.
-
-To build with meson the source tree may not have an in-place, ./configure
-style, build configured. Use a separate check out for meson based builds, or
-run 'make clean-all' in the source tree.
-
-You can have both meson and ./configure style builds for the same source tree
-by building out-of-source / VPATH with configure as well.''')
-endif
-
-####################################################################################################################################
 # Write configuration
 ####################################################################################################################################
 configure_file(output: 'build.auto.h', configuration: configuration)
@@ -41,6 +24,7 @@ src_common = files(
 	'common/regExp.c',
 	'common/stackTrace.c',
 	'common/time.c',
+	'common/type/blob.c',
 	'common/type/buffer.c',
 	'common/type/convert.c',
 	'common/type/keyValue.c',
@@ -59,76 +43,37 @@ src_common = files(
 	'storage/posix/read.c',
 	'storage/posix/storage.c',
 	'storage/posix/write.c',
+	'storage/iterator.c',
+	'storage/list.c',
 	'storage/read.c',
 	'storage/storage.c',
 	'storage/write.c',
 )
 
 ####################################################################################################################################
-# Build config target
+# Build code target
 ####################################################################################################################################
-src_build_config = [
+src_build_code = [
 	'build/common/render.c',
 	'build/common/yaml.c',
-	'build/config/main.c',
 	'build/config/parse.c',
 	'build/config/render.c',
-]
-
-build_config = executable(
-    'build-config',
-    src_common,
-    src_build_config,
-    dependencies : [
-        lib_yaml
-    ],
-    build_by_default: false,
-)
-
-alias_target('build-config', build_config)
-
-####################################################################################################################################
-# Build error target
-####################################################################################################################################
-src_build_error = [
-	'build/common/render.c',
-	'build/common/yaml.c',
-	'build/error/main.c',
 	'build/error/parse.c',
 	'build/error/render.c',
-]
-
-build_error = executable(
-    'build-error',
-    src_common,
-    src_build_error,
-    dependencies : [
-        lib_yaml
-    ],
-    build_by_default: false,
-)
-
-alias_target('build-error', build_error)
-
-####################################################################################################################################
-# Build help target
-####################################################################################################################################
-src_build_help = [
-	'build/common/render.c',
-	'build/common/yaml.c',
-	'build/config/parse.c',
-	'build/help/main.c',
 	'build/help/parse.c',
 	'build/help/render.c',
+	'build/postgres/parse.c',
+	'build/postgres/render.c',
+	'build/main.c',
 	'common/compress/bz2/common.c',
 	'common/compress/bz2/compress.c',
 	'common/type/xml.c',
 ]
 
-build_help = executable(
-    'build-help',
+build_code = executable(
+    'build-code',
     src_common,
-    src_build_help,
+    src_build_code,
     dependencies: [
         lib_bz2,
         lib_xml,
@@ -136,35 +81,11 @@ build_help = executable(
     ],
 )
 
-# build help.auto.c.inc
+# Build help.auto.c.inc
 subdir('command/help')
 
-alias_target('build-help', help_auto_c_inc)
-
-####################################################################################################################################
-# Build postgres target
-####################################################################################################################################
-src_build_postgres = [
-	'build/common/render.c',
-	'build/common/yaml.c',
-	'build/postgres/main.c',
-	'build/postgres/parse.c',
-	'build/postgres/render.c',
-]
-
-build_postgres = executable(
-    'build-postgres',
-    src_common,
-    src_build_postgres,
-    dependencies : [
-        lib_yaml
-    ],
-)
-
-# build interface.auto.c.inc
+# Build interface.auto.c.inc
 subdir('postgres')
-
-alias_target('build-postgres', build_postgres)
 
 ####################################################################################################################################
 # pgBackRest target
@@ -302,7 +223,7 @@ src_pgbackrest = [
     'main.c',
 ]
 
-pgbackrest = executable(
+executable(
     'pgbackrest',
     src_common,
     src_pgbackrest,
@@ -318,5 +239,3 @@ pgbackrest = executable(
         lib_zstd,
     ]
 )
-
-alias_target('pgbackrest', pgbackrest)
