@@ -771,6 +771,18 @@ strPath(const String *this)
             end - this->pub.buffer <= 1 ? (size_t)(end - this->pub.buffer) : (size_t)(end - this->pub.buffer - 1)));
 }
 
+
+
+/**********************************************************************************************************************************/
+bool
+strPathIsAbsolute(const String *this)
+{
+    return strBeginsWith(this, FSLASH_STR)
+           || strBeginsWithZ(this, "C:\\")
+           || strBeginsWithZ(this, "C:/");  // TODO: Let's just get through the build.
+}
+
+
 /**********************************************************************************************************************************/
 String *
 strPathAbsolute(const String *this, const String *base)
@@ -785,7 +797,7 @@ strPathAbsolute(const String *this, const String *base)
     String *result = NULL;
 
     // Path is already absolute so just return it
-    if (strBeginsWith(this, FSLASH_STR))
+    if (strPathIsAbsolute(this))
     {
         result = strDup(this);
     }
@@ -796,7 +808,7 @@ strPathAbsolute(const String *this, const String *base)
         ASSERT(base != NULL);
 
         // Base must be absolute to start
-        if (!strBeginsWith(base, FSLASH_STR))
+        if (!strPathIsAbsolute(base))
             THROW_FMT(AssertError, "base path '%s' is not absolute", strZ(base));
 
         MEM_CONTEXT_TEMP_BEGIN()

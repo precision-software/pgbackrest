@@ -174,6 +174,9 @@ String *strLower(String *this);
 // Return the path part of a string (i.e. everything before the last / or "" if there is no /)
 String *strPath(const String *this);
 
+// Query if a path is absolute.
+bool strPathIsAbsolute(const String *this);
+
 // Combine with a base path to get an absolute path
 String *strPathAbsolute(const String *this, const String *base);
 

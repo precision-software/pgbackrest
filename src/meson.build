@@ -77,7 +77,8 @@ build_code = executable(
     dependencies: [
         lib_bz2,
         lib_xml,
-        lib_yaml
+        lib_yaml,
+        lib_gnurx
     ],
 )
 
