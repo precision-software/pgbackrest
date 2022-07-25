@@ -38,10 +38,8 @@ main(const int argListSize, const char *const argList[])
     {
         const String *const pathArg = STR(argList[2]);
 
-        if (strPathIsAbsolute(pathArg))
-            pathRepo = strPath(pathArg);
-        else
-            pathRepo = strPathAbsolute(pathArg, STR(currentWorkDir));
+
+        pathRepo = strPathAbsolute(pathArg, STR(currentWorkDir));
 
         pathBuild = strDup(pathRepo);
     }

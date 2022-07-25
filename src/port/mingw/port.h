@@ -50,7 +50,6 @@ static int fsync()      {MISSING;};
 static int chown()      {MISSING;};
 
 
-typedef long long pid_t; // Matches mingw, but we need it earlier.
 typedef int gid_t;
 typedef int uid_t;
 
@@ -63,23 +62,13 @@ struct group {
     char *gr_name;
 };
 
-struct passwd {
-    uid_t pw_uid;
-    char *pw_name;
-};
-
 static const uid_t dummyUid = 0;
-static const gid_t dummyGid = 0;
-static const struct passwd dummyPassword = {.pw_uid=dummyUid, .pw_name="dummyPassword"};
-static const struct group dummyGroup = {.gr_gid = dummyGid, .gr_name="dummyGroup"};
-
-//static pid_t getpid() {MISSING;}
 static uid_t getuid() {return dummyUid;}
+
+
+static const gid_t dummyGid = 0;
 static gid_t getgid() {return dummyGid;}
-static struct group *getgrnam(const char *name) {return &dummyGroup;}
-static struct group *getgrgid(int gid) {return &dummyGroup;}
-static struct passwd *getpwnam(const char *name) {return &dummyPassword;}
-static struct passwd *getpwuid(uid_t uid) {return &dummyPassword;}
+
 
 
 #endif //PGBACKREST_PORT_H
