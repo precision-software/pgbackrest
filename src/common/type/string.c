@@ -794,6 +794,11 @@ strPathAbsolute(const String *this, const String *base)
 
     ASSERT(this != NULL);
 
+#ifdef WINDOWS_HACK
+    base = strReplaceChr(base, '\\', '/' );
+    this = strReplaceChr( this,'\\', '/');
+#endif WINDOWS_HACK
+
     String *result = NULL;
 
     // Path is already absolute so just return it

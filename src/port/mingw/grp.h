@@ -8,6 +8,11 @@
 #include "port.h"
 
 
+struct group {
+    gid_t gr_gid;
+    char *gr_name;
+};
+
 static struct group dummyGroup = {.gr_name="dummyGroup"};
 
 static struct group
@@ -20,7 +25,7 @@ static struct group
 static struct group
 *getgrgid(int gid)
 {
-    dummyGroup.gr_gid = getgid();
+    dummyGroup.gr_gid = gid;
     return &dummyGroup;
 }
 

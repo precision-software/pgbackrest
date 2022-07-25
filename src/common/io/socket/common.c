@@ -86,7 +86,9 @@ sckHostLookup(const String *const host, unsigned int port)
 
     if ((error = getaddrinfo(strZ(host), portZ, &hints, &result)) != 0)
         THROW_FMT(HostConnectError, "unable to get address for '%s': [%d] %s", strZ(host), error, gai_strerror(error));
-
+#ifdef WINDOWS_HACK
+#undef VOID
+#endif
     FUNCTION_LOG_RETURN_P(VOID, result);
 }
 
@@ -217,6 +219,6 @@ sckConnect(int fd, const String *host, unsigned int port, const struct addrinfo 
         if (errNo != 0)
             THROW_SYS_ERROR_CODE_FMT(errNo, HostConnectError, "unable to connect to '%s:%u'", strZ(host), port);
     }
-
+#undef VOID
     FUNCTION_LOG_RETURN_VOID();
 }

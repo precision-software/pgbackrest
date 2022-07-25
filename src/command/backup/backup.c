@@ -162,6 +162,12 @@ typedef struct BackupData
     unsigned int walSegmentSize;                                    // PostgreSQL wal segment size
 } BackupData;
 
+
+#ifdef WINDOWS_HACK
+// TODO: BACKUP_DATA appears to be defined as 0x00000001 inside backupInit.
+#undef BACKUP_DATA
+#endif
+
 static BackupData *
 backupInit(const InfoBackup *infoBackup)
 {
@@ -279,6 +285,8 @@ backupInit(const InfoBackup *infoBackup)
 
     FUNCTION_LOG_RETURN(BACKUP_DATA, result);
 }
+
+
 
 /**********************************************************************************************************************************
 Get time from the database or locally depending on online

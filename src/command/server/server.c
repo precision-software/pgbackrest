@@ -2,7 +2,7 @@
 Server Command
 ***********************************************************************************************************************************/
 #include "build.auto.h"
-
+#include <signal.h>
 #include <sys/wait.h>
 
 #include "command/exit.h"

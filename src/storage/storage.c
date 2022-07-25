@@ -47,7 +47,7 @@ storageNew(
     FUNCTION_LOG_END();
 
     ASSERT(type != 0);
-    ASSERT(strSize(path) >= 1 && strZ(path)[0] == '/');
+    ASSERT(strPathIsAbsolute(path));
     ASSERT(driver != NULL);
     ASSERT(interface.info != NULL);
     ASSERT(interface.list != NULL);
