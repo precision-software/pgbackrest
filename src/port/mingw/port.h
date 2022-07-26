@@ -5,13 +5,10 @@
 #ifndef PGBACKREST_PORT_H
 #define PGBACKREST_PORT_H
 
+#include <missing.h>
 
-#include <assert.h>
-static const int NOT_IMPLEMENTED=0;
-#define MISSING assert(NOT_IMPLEMENTED)
 
-// Don't use the basic unix functions. (ywt)
-//#define NO_OLDNAMES
+#include <sys/types.h>
 
 // windows defines mkdir with a single parameter.  redefine mkdir to have two paramaters ala posix.
 #define mkdir mkdir_with_one_arg
@@ -70,6 +67,7 @@ struct sigaction {
 static int sigaction(int signum, const struct sigaction *restrict act, struct sigaction *restrict oldact) {MISSING;}
 
 // File locks - not included in mingw sys/file.h
+static int flock(int fd, int operation) {MISSING;}
 #define LOCK_EX (MISSING, 0)
 #define LOCK_NB (MISSING, 0)
 
@@ -78,6 +76,17 @@ static int fcntl(int fd, int cmd, ... /* arg */ ) {MISSING;}
 #define F_GETFL (MISSING, -1)
 #define F_SETFL (MISSING, -1)
 #define O_NONBLOCK (MISSING, -1)
+
+static pid_t fork(void) {MISSING;}
+static int symlink(const char *target, const char *linkpath) {MISSING;}
+static int lchown(const char *path, uid_t owner, gid_t group) {MISSING;}
+static int kill(pid_t pid, int sig) {MISSING;}
+static int link(const char *oldpath, const char *newpath) {MISSING;}
+static pid_t setsid(void) {MISSING;}
+static int pipe(int pipefd[2]) {MISSING;}
+
+
+
 
 // For debugging macros
 #define MESSAGE(x) PRAGMA(message #x)

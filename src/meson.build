@@ -238,5 +238,6 @@ executable(
         lib_xml,
         lib_z,
         lib_zstd,
+        lib_gnurx
     ]
 )

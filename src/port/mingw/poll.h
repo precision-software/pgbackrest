@@ -4,6 +4,8 @@
 
 #ifndef PGBACKREST_POLL_H
 #define PGBACKREST_POLL_H
+#include "missing.h"
+
 
 typedef int nfds_t;
 

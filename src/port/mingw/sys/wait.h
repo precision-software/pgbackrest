@@ -6,12 +6,13 @@
 #define PGBACKREST_WAIT_H
 
 #include <sys/types.h>
-#include <port.h>  # For MISSING
+#include "missing.h"
 
 
 static pid_t waitpid(pid_t pid, int *status, int options) {MISSING;}
 #define WEXITSTATUS(code) (MISSING,0)
 #define WIFEXITED(code) (MISSING,0)
+#define WTERMSIG(code) (MISSING,0)
 #define WNOHANG (MISSING,0)
 
 
