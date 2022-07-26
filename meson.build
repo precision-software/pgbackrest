@@ -28,19 +28,21 @@ cc = meson.get_compiler('c')
 ####################################################################################################################################
 if host_machine.system() == 'linux'
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
+    libs = []
 elif host_machine.system() == 'darwin'
     add_global_arguments('-D_DARWIN_C_SOURCE', language : 'c')
+    libs = []
 elif host_machine.system() == 'cygwin'
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
     add_global_arguments('-DSA_NOCLDWAIT=0', language : 'c')  # Cygwin doesn't support this flag
+    libs = []
 elif host_machine.system() == 'windows'  # mingw64
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', '-D__USE_MINGW_ANSI_STDIO', language : 'c')
     add_global_arguments('-DWINDOWS_HACK', language : 'c')
     add_global_arguments('-include',  'port.h', language : 'c')
     add_global_arguments('-I../pgbackrest/src/port/mingw', language : 'c')  # Rewrite to use "include_directories()"
     add_global_arguments('-std=c99', '-w', language : 'c') # suppress warnings
-    lib_gnurx = dependency('gnurx')   # regular expression library is not part of mingw's C library.
-    lib_ws2 = cc.find_library('ws2_32')
+    libs = [dependency('gnurx'), cc.find_library('ws2_32')]
 endif
 
 ####################################################################################################################################

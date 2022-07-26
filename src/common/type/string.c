@@ -787,8 +787,8 @@ strPath(const String *this)
 bool
 strPathIsAbsoluteZ(const char *this)
 {
-    return (strlen(this) >= 1 && charIsSeparator(this[0])
-           || (strlen(this) >= 3 && isalpha(this[0]) && this[1] == ':' && charIsSeparator(this[2])));
+    return (strlen(this) >= 1 && charIsSeparator(this[0]))
+           || (strlen(this) >= 3 && isalpha(this[0]) && this[1] == ':' && charIsSeparator(this[2]));
 }
 
 bool

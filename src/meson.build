@@ -78,8 +78,7 @@ build_code = executable(
         lib_bz2,
         lib_xml,
         lib_yaml,
-        lib_gnurx,
-        lib_ws2,
+        libs
     ],
 )
 
@@ -239,7 +238,6 @@ executable(
         lib_xml,
         lib_z,
         lib_zstd,
-        lib_gnurx,
-        lib_ws2,
+        libs
     ]
 )

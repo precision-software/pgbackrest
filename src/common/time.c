@@ -38,8 +38,8 @@ sleepMSec(TimeMSec sleepMSec)
     if (sleepMSec > 0)
     {
         struct timeval delay;
-        delay.tv_sec = (time_t)(sleepMSec / MSEC_PER_SEC);
-        delay.tv_usec = (suseconds_t)(sleepMSec % MSEC_PER_SEC * 1000);
+        delay.tv_sec = (sleepMSec / MSEC_PER_SEC);
+        delay.tv_usec = (useconds_t)(sleepMSec % MSEC_PER_SEC * 1000);
         struct timeval actual;
         nanosleep(&delay, &actual);
     }
