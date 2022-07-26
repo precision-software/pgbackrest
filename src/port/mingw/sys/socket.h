@@ -24,10 +24,10 @@ struct addrinfo {
 
 #define AF_UNSPEC (MISSING, -1)
 #define AI_PASSIVE (MISSING, -1)
-/*
+
 static
 int connect(int sockfd, const struct sockaddr *addr,
             socklen_t addrlen) {MISSING;}
-            */
+
 
 #endif //PGBACKREST_SOCKET_H
