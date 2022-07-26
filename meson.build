@@ -40,6 +40,7 @@ elif host_machine.system() == 'windows'  # mingw64
     add_global_arguments('-I../pgbackrest/src/port/mingw', language : 'c')  # Rewrite to use "include_directories()"
     add_global_arguments('-std=c99', '-w', language : 'c') # suppress warnings
     lib_gnurx = dependency('gnurx')   # regular expression library is not part of mingw's C library.
+    lib_ws2 = cc.find_library('ws2_32')
 endif
 
 ####################################################################################################################################

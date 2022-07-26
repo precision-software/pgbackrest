@@ -18,7 +18,7 @@ static int mkdir(const char *path, int mode) {MISSING;}
 
 // COM defines "interface" as a macro (struct) which interferes with pgbackrest "interface" name.
 //   Our solution is to include <windows.h> now, and then  to undefine "interface".
-#include <windows.h>
+#include <winsock2.h>
 #undef interface
 
 
