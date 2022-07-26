@@ -270,6 +270,16 @@ strNewZN(const char *string, size_t size)
     FUNCTION_TEST_RETURN(STRING, this);
 }
 
+
+
+// TODO: Separate windows from non-windows.  This code will work temporarily on non-windows.
+/**********************************************************************************************************************************/
+static bool
+charIsSeparator(char c)
+{
+    return c == '/' || c == '\\';
+}
+
 /**********************************************************************************************************************************/
 String *
 strBase(const String *this)
@@ -294,7 +304,7 @@ strBaseZ(const String *this)
 
     const char *end = this->pub.buffer + strSize(this);
 
-    while (end > this->pub.buffer && *(end - 1) != '/')
+    while (end > this->pub.buffer && !charIsSeparator(*(end - 1)))
         end--;
 
     FUNCTION_TEST_RETURN_CONST(STRINGZ, end);
@@ -775,11 +785,16 @@ strPath(const String *this)
 
 /**********************************************************************************************************************************/
 bool
-strPathIsAbsolute(const String *this)
+strPathIsAbsoluteZ(const char *this)
 {
-    return strBeginsWith(this, FSLASH_STR)
-           || strBeginsWithZ(this, "C:\\")
-           || strBeginsWithZ(this, "C:/");  // TODO: Let's just get through the build.
+    return (strlen(this) >= 1 && charIsSeparator(this[0])
+           || (strlen(this) >= 3 && isalpha(this[0]) && this[1] == ':' && charIsSeparator(this[2])));
+}
+
+bool
+strPathIsAbsolute(const String* this)
+{
+    return strPathIsAbsoluteZ(strZ(this));
 }
 
 
@@ -795,9 +810,8 @@ strPathAbsolute(const String *this, const String *base)
     ASSERT(this != NULL);
 
 #ifdef WINDOWS_HACK
-    base = strReplaceChr(base, '\\', '/' );
     this = strReplaceChr( this,'\\', '/');
-#endif WINDOWS_HACK
+#endif
 
     String *result = NULL;
 
@@ -811,6 +825,9 @@ strPathAbsolute(const String *this, const String *base)
     else
     {
         ASSERT(base != NULL);
+#ifdef WINDOWS_HACK  // TODO: Review memory allocation for both string substitutions. (TEMP?) or rewrite split code.
+        base = strReplaceChr(base, '\\', '/' );
+#endif
 
         // Base must be absolute to start
         if (!strPathIsAbsolute(base))

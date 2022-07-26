@@ -175,7 +175,9 @@ String *strLower(String *this);
 String *strPath(const String *this);
 
 // Query if a path is absolute.
+bool strPathIsAbsoluteZ(const char *this);
 bool strPathIsAbsolute(const String *this);
+
 
 // Combine with a base path to get an absolute path
 String *strPathAbsolute(const String *this, const String *base);
