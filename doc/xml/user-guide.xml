@@ -396,8 +396,9 @@
         # Set locale
         RUN echo en_US.UTF-8 UTF-8 > /etc/locale.conf
 
-        # Add path to PostgreSQL
+        # Add path to PostgreSQL and package
         ENV PATH=/usr/pgsql-{[pg-version]}/bin:$PATH
+        ENV PKG_CONFIG_PATH=/usr/pgsql-{[pg-version]}/lib/pkgconfig:$PKG_CONFIG_PATH
 
         CMD ["/usr/sbin/init"]
     </host-define>
@@ -454,7 +455,7 @@
                     echo 'ExecStart=/usr/bin/pgbackrest server' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
                     echo 'ExecStartPost=/bin/sleep 3' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
                     echo 'ExecStartPost=/bin/bash -c "[ ! -z $MAINPID ]"' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
-                    echo 'ExecReload=kill -HUP $MAINPID' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
+                    echo 'ExecReload=/bin/kill -HUP $MAINPID' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
                     echo '' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
                     echo '[Install]' | tee -a /etc/systemd/system/pgbackrest.service &amp;&amp;
                     echo 'WantedBy=multi-user.target' | tee -a /etc/systemd/system/pgbackrest.service

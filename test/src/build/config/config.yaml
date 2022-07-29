@@ -45,6 +45,13 @@ option:
       - 512KiB
       - 1MiB
 
+  coverage:
+    type: boolean
+    default: true
+    negate: true
+    command:
+      test: {}
+
   neutral-umask:
     type: boolean
     internal: true
@@ -60,6 +67,13 @@ option:
   repo-path:
     type: string
     default: pgbackrest
+    command:
+      test: {}
+
+  run:
+    type: boolean
+    default: true
+    negate: true
     command:
       test: {}
 
@@ -89,6 +103,13 @@ option:
     type: string
     internal: true
     required: false
+    command:
+      test: {}
+
+  valgrind:
+    type: boolean
+    default: true
+    negate: true
     command:
       test: {}
 
