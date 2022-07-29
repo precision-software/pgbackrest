@@ -68,6 +68,7 @@ src_build_code = [
 	'common/compress/bz2/common.c',
 	'common/compress/bz2/compress.c',
 	'common/type/xml.c',
+	code_port
 ]
 
 build_code = executable(
@@ -78,7 +79,7 @@ build_code = executable(
         lib_bz2,
         lib_xml,
         lib_yaml,
-        libs
+        lib_port
     ],
 )
 
@@ -222,6 +223,7 @@ src_pgbackrest = [
 	'storage/s3/storage.c',
 	'storage/s3/write.c',
     'main.c',
+    code_port,
 ]
 
 executable(
@@ -238,6 +240,6 @@ executable(
         lib_xml,
         lib_z,
         lib_zstd,
-        libs
+        lib_port
     ]
 )

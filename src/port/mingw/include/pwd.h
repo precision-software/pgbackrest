@@ -4,7 +4,7 @@
 
 #ifndef PGBACKREST_PWD_H
 #define PGBACKREST_PWD_H
-#include <port.h>  // pid_t
+#include "port.h"  // pid_t
 
 struct passwd {
     uid_t pw_uid;
