@@ -487,7 +487,7 @@ storagePath(const Storage *this, const String *pathExp, StoragePathParam param)
     else
     {
         // If the path expression is absolute then use it as is
-        if ((strZ(pathExp))[0] == '/')
+        if (strPathIsAbsolute(pathExp))
         {
             // Make sure the base storage path is contained within the path expression
             if (!strEqZ(this->path, "/"))

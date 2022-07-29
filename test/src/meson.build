@@ -47,6 +47,7 @@ src_test = [
     'command/test/test.c',
     'config/load.c',
     'main.c',
+    code_port,
 ]
 
 executable(
@@ -59,6 +60,7 @@ executable(
     dependencies: [
         lib_bz2,
         lib_yaml,
+        lib_port,
     ],
     build_by_default: false,
 )

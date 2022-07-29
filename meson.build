@@ -43,7 +43,7 @@ elif host_machine.system() == 'windows'  # mingw64
     add_global_arguments('-I../pgbackrest/src/port/mingw/include', language : 'c')  # Rewrite to use "include_directories()"
     add_global_arguments('-std=c99', '-w', language : 'c') # suppress warnings
     lib_port = [dependency('gnurx'), cc.find_library('ws2_32')]
-    code_port = ['port/mingw/win32error.c', 'port/mingw/dirmod.c', 'port/mingw/pgsleep.c', 'port/mingw/strlcpy.c' ]
+    code_port = files('src/port/mingw/win32error.c', 'src/port/mingw/dirmod.c', 'src/port/mingw/pgsleep.c', 'src/port/mingw/strlcpy.c')
 endif
 
 ####################################################################################################################################
