@@ -426,7 +426,8 @@ storagePosixPathRemove(THIS_VOID, const String *path, bool recurse, StorageInter
                         if (unlink(strZ(file)) == -1)                                                               // {vm_covered}
                         {
                             // These errors indicate that the entry is actually a path so we'll try to delete it that way
-                            if (errno == EPERM || errno == EISDIR)               // {uncovered_branch - no EPERM on tested systems}
+                            LOG_INFO_FMT("After posix unlink, got errno=%d\n  file=%s", errno, strZ(file));
+                            if (errno == EPERM || errno == EISDIR || errno == EACCES)             // TODO: EACCESS is windows error return.  // {uncovered_branch - no EPERM on tested systems}
                             {
                                 storageInterfacePathRemoveP(this, file, true);
                             }
@@ -481,8 +482,10 @@ storagePosixPathSync(THIS_VOID, const String *path, StorageInterfacePathSyncPara
     {
         if (errno == ENOENT)                                                                                        // {vm_covered}
             THROW_FMT(PathMissingError, STORAGE_ERROR_PATH_SYNC_MISSING, strZ(path));
+#ifndef WINDOWS_HACK      // TODO: Mingw is giving EACESS when opening a directory.  Look at postgres and cygwin for ideas.
         else
             THROW_SYS_ERROR_FMT(PathOpenError, STORAGE_ERROR_PATH_SYNC_OPEN, strZ(path));                           // {vm_covered}
+#endif
     }
     else
     {

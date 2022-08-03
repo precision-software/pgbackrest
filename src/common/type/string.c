@@ -277,7 +277,11 @@ strNewZN(const char *string, size_t size)
 static bool
 charIsSeparator(char c)
 {
+#ifdef WINDOWS_HACK
     return c == '/' || c == '\\';
+#else
+    return c == '/';
+#endif
 }
 
 /**********************************************************************************************************************************/
@@ -771,7 +775,7 @@ strPath(const String *this)
 
     const char *end = this->pub.buffer + strSize(this);
 
-    while (end > this->pub.buffer && *(end - 1) != '/')
+    while (end > this->pub.buffer && !charIsSeparator(*(end - 1)))
         end--;
 
     FUNCTION_TEST_RETURN(
@@ -782,20 +786,41 @@ strPath(const String *this)
 }
 
 
-
-/**********************************************************************************************************************************/
 bool
 strPathIsAbsoluteZ(const char *this)
 {
+#ifdef WINDOWS_HACK
+    // If starts with "/" or with "x:/" then it is an absolute path on windows.
     return (strlen(this) >= 1 && charIsSeparator(this[0]))
            || (strlen(this) >= 3 && isalpha(this[0]) && this[1] == ':' && charIsSeparator(this[2]));
+#else
+    return strlen(this) >= 1 && charIsSeparator(this[0]);
+#endif
 }
+
+
+// Note: always duplicates the string
+String *
+strPathNormalize(const String *this)
+{
+#ifdef WINDOWS_HACK
+    return strReplaceChr(strDup(this), '\\', '/');
+#else
+    return strDup(this);
+#endif
+}
+
+
+
 
 bool
 strPathIsAbsolute(const String* this)
 {
     return strPathIsAbsoluteZ(strZ(this));
 }
+
+
+
 
 
 /**********************************************************************************************************************************/
@@ -809,25 +834,18 @@ strPathAbsolute(const String *this, const String *base)
 
     ASSERT(this != NULL);
 
-#ifdef WINDOWS_HACK
-    this = strReplaceChr( this,'\\', '/');
-#endif
-
     String *result = NULL;
 
     // Path is already absolute so just return it
     if (strPathIsAbsolute(this))
     {
-        result = strDup(this);
+        result = strPathNormalize(this);
     }
     // Else we'll need to construct the absolute path.  You would hope we could use realpath() here but it is so broken in the
     // Posix spec that is seems best avoided.
     else
     {
         ASSERT(base != NULL);
-#ifdef WINDOWS_HACK  // TODO: Review memory allocation for both string substitutions. (TEMP?) or rewrite split code.
-        base = strReplaceChr(base, '\\', '/' );
-#endif
 
         // Base must be absolute to start
         if (!strPathIsAbsolute(base))
@@ -835,8 +853,8 @@ strPathAbsolute(const String *this, const String *base)
 
         MEM_CONTEXT_TEMP_BEGIN()
         {
-            StringList *baseList = strLstNewSplit(base, FSLASH_STR);
-            StringList *pathList = strLstNewSplit(this, FSLASH_STR);
+            StringList *baseList = strLstNewSplit(strPathNormalize(base), FSLASH_STR);
+            StringList *pathList = strLstNewSplit(strPathNormalize(this), FSLASH_STR);
 
             while (!strLstEmpty(pathList))
             {
@@ -859,7 +877,7 @@ strPathAbsolute(const String *this, const String *base)
                 {
                     const String *basePart = strLstGet(baseList, strLstSize(baseList) - 1);
 
-                    if (strSize(basePart) == 0)
+                    if (strSize(basePart) == 0)  // TODO: Test for base list being empth.  base[0] could be "C:"
                         THROW_FMT(AssertError, "relative path '%s' goes back too far in base path '%s'", strZ(this), strZ(base));
 
                     strLstRemoveIdx(baseList, strLstSize(baseList) - 1);
@@ -872,9 +890,9 @@ strPathAbsolute(const String *this, const String *base)
 
             MEM_CONTEXT_PRIOR_BEGIN()
             {
-                if (strLstSize(baseList) == 1)
-                    result = strDup(FSLASH_STR);
-                else
+                //if (strLstSize(baseList) == 1)
+                //    result = strDup(FSLASH_STR);
+                //else
                     result = strLstJoin(baseList, "/");
             }
             MEM_CONTEXT_PRIOR_END();
