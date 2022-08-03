@@ -202,7 +202,7 @@ Generate a relative path from the compare path to the base path
 ??? This function has not been hardened for edge cases, e.g. paths are equal. Probably this should he moved to the storage module.
 ***********************************************************************************************************************************/
 static String *
-cmdBldPathRelative(const String *const base, const String *const compare)
+cmdBldPathRelative(const String *base, const String *compare)
 {
     FUNCTION_LOG_BEGIN(logLevelDebug);
         FUNCTION_LOG_PARAM(STRING, base);
@@ -216,6 +216,14 @@ cmdBldPathRelative(const String *const base, const String *const compare)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
+#ifdef WINDOWS_HACK
+        // Normalize the file paths to use a consistent path separator.
+        //   TODO: this whole function (and path manipulation in general) should be moved to strings.h or separate strPath.h.
+        //   TODO: should this be allocated under TEMP memory context?
+        //   TODO: we should create a strPathSplit which handles the details.
+        base = strReplaceChr(base, '\\', '/');
+        compare = strReplaceChr(compare, '\\', '/');
+#endif
         const StringList *const baseList = strLstNewSplitZ(base, "/");
         const StringList *const compareList = strLstNewSplitZ(compare, "/");
         unsigned int compareIdx = 0;

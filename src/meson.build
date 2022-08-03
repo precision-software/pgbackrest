@@ -6,7 +6,7 @@ configure_file(output: 'build.auto.h', configuration: configuration)
 ####################################################################################################################################
 # Common source used by all targets
 ####################################################################################################################################
-src_common = files(
+lib_common = static_library('libCommon',
 	'common/debug.c',
 	'common/encode.c',
 	'common/error.c',
@@ -48,12 +48,13 @@ src_common = files(
 	'storage/read.c',
 	'storage/storage.c',
 	'storage/write.c',
+	code_port,
 )
 
 ####################################################################################################################################
 # Build code target
 ####################################################################################################################################
-src_build_code = [
+src_build_code = files(
 	'build/common/render.c',
 	'build/common/yaml.c',
 	'build/config/parse.c',
@@ -68,13 +69,15 @@ src_build_code = [
 	'common/compress/bz2/common.c',
 	'common/compress/bz2/compress.c',
 	'common/type/xml.c',
-	code_port
-]
+)
+
 
 build_code = executable(
     'build-code',
-    src_common,
     src_build_code,
+    link_with: [
+        lib_common,
+    ],
     dependencies: [
         lib_bz2,
         lib_xml,
@@ -92,7 +95,7 @@ subdir('postgres')
 ####################################################################################################################################
 # pgBackRest target
 ####################################################################################################################################
-src_pgbackrest = [
+lib_pgbackrest = static_library('libBackrest',
 	'command/archive/common.c',
 	'command/archive/get/file.c',
 	'command/archive/get/get.c',
@@ -222,24 +225,25 @@ src_pgbackrest = [
 	'storage/s3/read.c',
 	'storage/s3/storage.c',
 	'storage/s3/write.c',
-    'main.c',
-    code_port,
-]
+	dependencies: [lib_xml],
+)
 
 executable(
     'pgbackrest',
-    src_common,
-    src_pgbackrest,
+    'main.c',
     help_auto_c_inc,
     interface_auto_c_inc,
-    dependencies : [
+    link_with : [
+        lib_pgbackrest,
+        lib_common,
+    ],
+    dependencies: [
         lib_bz2,
         lib_openssl,
         lib_lz4,
         lib_pq,
         lib_xml,
         lib_z,
-        lib_zstd,
-        lib_port
+        lib_zstd
     ]
 )

@@ -49,7 +49,7 @@ main(const int argListSize, const char *const argList[])
     {
         const String *const pathArg = STR(argList[3]);
 
-        if (strBeginsWith(pathArg, FSLASH_STR))
+        if (strPathIsAbsolute(pathArg)) // TODO: do we need this test?  Just call strPathAbsolute
             pathBuild = strDup(pathArg);
         else
             pathBuild = strPathAbsolute(pathArg, STR(currentWorkDir));

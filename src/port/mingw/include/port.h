@@ -16,6 +16,8 @@
  *-------------------------------------------------------------------------
  */
 
+// Temporary porting decisions - to be fixed before production.
+#define WINDOWS_HACK 1
 
 #include "missing.h"  // MISSING nacro.
 

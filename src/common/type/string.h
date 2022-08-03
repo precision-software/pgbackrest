@@ -168,18 +168,29 @@ String *strFirstLower(String *this);
 // Upper-case entire string
 String *strUpper(String *this);
 
-// Upper-case entire string
+/// Upper-case entire string
 String *strLower(String *this);
 
-// Return the path part of a string (i.e. everything before the last / or "" if there is no /)
+/// Return the path part of a string (i.e. everything before the last / or "" if there is no /)
 String *strPath(const String *this);
 
-// Query if a path is absolute.
+/// Is the string an absolute path?
 bool strPathIsAbsoluteZ(const char *this);
+
+/// Is this an absolute path?
 bool strPathIsAbsolute(const String *this);
 
 
-// Combine with a base path to get an absolute path
+/***********************************************************************************************************************************
+Normalize a string path to a friendlier form.
+  In windows, this means changing backslash to slash.
+  but we could also simplify the ".." and "//" path segments as well.
+***********************************************************************************************************************************/
+String *strPathNormalize(const String *this);
+
+// TODO: should separate strPath from string, and move all path manipulations there.  Create strPathSplit as well. (or strPathIter?)
+
+/// Combine with a base path to get an absolute path
 String *strPathAbsolute(const String *this, const String *base);
 
 // Quote a string

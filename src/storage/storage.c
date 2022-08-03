@@ -67,7 +67,11 @@ storageNew(
             .interface = interface,
         },
         .memContext = memContextCurrent(),
+#ifdef WINDOWS_HACK
+        .path = strReplaceChr(path, '\\', '/'),
+#else
         .path = strDup(path),
+#endif
         .modeFile = modeFile,
         .modePath = modePath,
         .write = write,
@@ -486,6 +490,10 @@ storagePath(const Storage *this, const String *pathExp, StoragePathParam param)
     }
     else
     {
+#ifdef WINDOWS_HACK
+        // Normalize the paths to use slash separators.  TODO: Warning: modifies pathExp in place.
+        strReplaceChr(pathExp, '\\', '/');
+#endif
         // If the path expression is absolute then use it as is
         if (strPathIsAbsolute(pathExp))
         {

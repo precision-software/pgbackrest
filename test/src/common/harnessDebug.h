@@ -58,7 +58,7 @@ C Debug Harness
         }                                                                                                                          \
         while (0)
 
-    #define FUNCTION_HARNESS_RETURN_VOID()                                                                                         \
+    #define     // Run the tests                                                                                      \
         STACK_TRACE_POP(false);
 #else
     #define FUNCTION_HARNESS_INIT(exe)

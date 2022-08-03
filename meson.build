@@ -38,13 +38,19 @@ elif host_machine.system() == 'cygwin'
     add_global_arguments('-DSA_NOCLDWAIT=0', language : 'c')  # Cygwin doesn't support this flag
 elif host_machine.system() == 'windows'  # mingw64
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', '-D__USE_MINGW_ANSI_STDIO', language : 'c')
-    add_global_arguments('-DWINDOWS_HACK', language : 'c')
     add_global_arguments('-include',  'port.h', language : 'c')
     add_global_arguments('-I../pgbackrest/src/port/mingw/include', language : 'c')  # Rewrite to use "include_directories()"
-    add_global_arguments('-std=c99', '-w', language : 'c') # suppress warnings
-    lib_port = [dependency('gnurx'), cc.find_library('ws2_32')]
-    code_port = files('src/port/mingw/win32error.c', 'src/port/mingw/dirmod.c', 'src/port/mingw/pgsleep.c', 'src/port/mingw/strlcpy.c')
+    add_global_arguments('-w', language : 'c') # suppress warnings
+
+    # add the following to all executables. Might be better to create an archive lib and search it, than to list all code files.
+    lib_port = [dependency('gnurx'), cc.find_library('ws2_32')]   # make these archive libs if possible, so we don't need runtime.
+    code_port = files('src/port/mingw/win32error.c',
+                       'src/port/mingw/dirmod.c',
+                       'src/port/mingw/pgsleep.c',
+                       'src/port/mingw/strlcpy.c')
 endif
+
+
 
 ####################################################################################################################################
 # Enable/disable warnings
@@ -200,3 +206,10 @@ configuration.set('FN_NO_RETURN', '__attribute__((__noreturn__))', description: 
 ####################################################################################################################################
 subdir('src')
 subdir('test/src')
+
+executable('common_logTest',
+    files('test/src/module/common/logTest.c'),
+    # c_args: ['-include pgTest.h'],
+    link_with: lib_common,
+    include_directories: include_directories('test/src', 'src'),
+    )

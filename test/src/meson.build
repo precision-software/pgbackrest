@@ -52,11 +52,11 @@ src_test = [
 
 executable(
     'test-pgbackrest',
-    src_common,
     src_test,
     test_help_auto_c_inc,
     test_parse_auto_c_inc,
     include_directories: include_directories('.', '../../src'),
+    link_with: [lib_common],
     dependencies: [
         lib_bz2,
         lib_yaml,
