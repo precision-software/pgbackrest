@@ -107,11 +107,17 @@ cmdTest(
         if (module == NULL)
             THROW_FMT(ParamInvalidError, "'%s' is not a valid test", strZ(moduleName));
 
-        // Build test
+        // Build test directories
         bool buildRetry = false;
         const String *const pathUnit = strNewFmt("%s/unit-%u/%s", strZ(pathTest), vmId, strZ(vm));
         const String *const pathUnitBuild = strNewFmt("%s/build", strZ(pathUnit));
         const Storage *const storageUnitBuild = storagePosixNewP(pathUnitBuild, .write = true);
+
+        // Remove and create the test data directory. TODO: move this to test-unit?
+        const Storage *const pathTestId = storagePosixNewP(
+                strNewFmt("%s/test-%u", strZ(pathTest), vmId), .write = true);
+        storagePathRemoveP(pathTestId, NULL, .recurse = true);
+        storagePathCreateP(pathTestId, NULL);
 
         do
         {

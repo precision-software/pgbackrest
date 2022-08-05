@@ -48,6 +48,10 @@ src_common = files(
 	'storage/read.c',
 	'storage/storage.c',
 	'storage/write.c',
+	'port/mingw/win32error.c',
+	'port/mingw/dirmod.c',
+	'port/mingw/pgsleep.c',
+	'port/mingw/strlcpy.c',
 )
 
 ####################################################################################################################################
@@ -68,18 +72,17 @@ src_build_code = [
 	'common/compress/bz2/common.c',
 	'common/compress/bz2/compress.c',
 	'common/type/xml.c',
-	code_port
 ]
 
 build_code = executable(
     'build-code',
     src_common,
     src_build_code,
+    include_directories: [],
     dependencies: [
         lib_bz2,
         lib_xml,
         lib_yaml,
-        lib_port
     ],
 )
 
@@ -223,7 +226,6 @@ src_pgbackrest = [
 	'storage/s3/storage.c',
 	'storage/s3/write.c',
     'main.c',
-    code_port,
 ]
 
 executable(
@@ -232,6 +234,7 @@ executable(
     src_pgbackrest,
     help_auto_c_inc,
     interface_auto_c_inc,
+    include_directories: [],
     dependencies : [
         lib_bz2,
         lib_openssl,
@@ -240,6 +243,5 @@ executable(
         lib_xml,
         lib_z,
         lib_zstd,
-        lib_port
     ]
 )

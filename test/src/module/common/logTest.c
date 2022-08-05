@@ -219,6 +219,7 @@ testRun(void)
 
         // Log to file
         const char *const fileFile = TEST_PATH "/file.log";
+        unlink(fileFile);  // Start with a clean test
         logFileSet(fileFile);
 
         logBuffer[0] = 0;

@@ -491,6 +491,7 @@ testBldUnit(TestBuild *const this)
             "            '.',\n"
             "            '%s/src',\n"
             "            '%s/test/src',\n"
+            "            '%s/src/port/mingw/include',\n"
             "        ),\n"
             "    dependencies: [\n"
             "        lib_bz2,\n"
@@ -503,7 +504,7 @@ testBldUnit(TestBuild *const this)
             "        lib_zstd,\n"
             "    ],\n"
             ")\n",
-            strZ(pathRepoRel), strZ(pathRepoRel));
+            strZ(pathRepoRel), strZ(pathRepoRel), strZ(pathRepoRel));
 
         testBldWrite(storageUnit, storageUnitList, "meson.build", BUFSTR(mesonBuild));
 

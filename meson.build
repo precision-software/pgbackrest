@@ -9,7 +9,7 @@ project(
     meson_version: '>=0.45',
     default_options: [
         # Core options
-        'buildtype=release',
+        'buildtype=debug',
         'warning_level=2',
 
         # Base options
@@ -26,8 +26,6 @@ cc = meson.get_compiler('c')
 ####################################################################################################################################
 # OS-specific settings
 ####################################################################################################################################
-lib_port = []
-code_port = []
 
 if host_machine.system() == 'linux'
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
@@ -41,9 +39,8 @@ elif host_machine.system() == 'windows'  # mingw64
     add_global_arguments('-DWINDOWS_HACK', language : 'c')
     add_global_arguments('-include',  'port.h', language : 'c')
     add_global_arguments('-I../pgbackrest/src/port/mingw/include', language : 'c')  # Rewrite to use "include_directories()"
-    add_global_arguments('-std=c99', '-w', language : 'c') # suppress warnings
-    lib_port = [dependency('gnurx'), cc.find_library('ws2_32')]
-    code_port = files('src/port/mingw/win32error.c', 'src/port/mingw/dirmod.c', 'src/port/mingw/pgsleep.c', 'src/port/mingw/strlcpy.c')
+    add_global_arguments('-w', language : 'c') # suppress warnings
+    add_project_dependencies(dependency('gnurx'), cc.find_library('ws2_32'), language :'c')
 endif
 
 ####################################################################################################################################
