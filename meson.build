@@ -1,5 +1,17 @@
 ####################################################################################################################################
-# pgBackRest Project
+# pgBackRest Project.
+#
+#   This is a "portable" meson.build file which can be copied to different pgBackRest project directories.
+#   By default, it resides at the top of the main pgBackRest repository and builds the pgBackrest binary.
+#   When copied to a different location,  the follow options need to be set.
+#          repo  - points to the pgbackrest repository if meson.build is moved.
+#          subdirSrc - defaults to "src"
+#          subdirTest - defaults to "test/src"
+# Note these options can be set in the command line using the "-Doption=value" arguments, or in the meson_options.txt file.
+#
+# The "repo" variable should be used to access files in the pgbackrest repository.  For example, to include repository header files,
+#        include_directories(repo / 'src')
+#
 ####################################################################################################################################
 project(
     'pgbackrest',
@@ -17,8 +29,16 @@ project(
 
         # Compiler options
         'c_std=c99',
+
+        # Location of pgbackrest repository
+        #'repo=.',
     ],
 )
+
+#######################################################################################################
+# Fetch the options which allow us to use the meson.build file in other locations.
+repo = get_option('repo')
+subdirs = get_option('subdirs')
 
 # Selected C compiler
 cc = meson.get_compiler('c')
@@ -26,8 +46,9 @@ cc = meson.get_compiler('c')
 ####################################################################################################################################
 # OS-specific settings
 ####################################################################################################################################
-lib_port = []
+lib_port = [] # maybe use other ways of adding libs, includes  which applies to all builds.
 code_port = []
+inc_port = []
 
 if host_machine.system() == 'linux'
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', language : 'c')
@@ -40,10 +61,21 @@ elif host_machine.system() == 'windows'  # mingw64
     add_global_arguments('-D_POSIX_C_SOURCE=200809L', '-D__USE_MINGW_ANSI_STDIO', language : 'c')
     add_global_arguments('-DWINDOWS_HACK', language : 'c')
     add_global_arguments('-include',  'port.h', language : 'c')
-    add_global_arguments('-I../pgbackrest/src/port/mingw/include', language : 'c')  # Rewrite to use "include_directories()"
-    add_global_arguments('-std=c99', '-w', language : 'c') # suppress warnings
-    lib_port = [dependency('gnurx'), cc.find_library('ws2_32')]
-    code_port = files('src/port/mingw/win32error.c', 'src/port/mingw/dirmod.c', 'src/port/mingw/pgsleep.c', 'src/port/mingw/strlcpy.c')
+    add_global_arguments('-w', language : 'c') # suppress warnings
+
+    add_project_dependencies( declare_dependency(
+        include_directories: include_directories(repo / 'src/port/mingw/include'),
+        sources: files(
+            repo / 'src/port/mingw/win32error.c',
+            repo / 'src/port/mingw/dirmod.c',
+            repo / 'src/port/mingw/pgsleep.c',
+            repo / 'src/port/mingw/strlcpy.c'
+        ),
+        dependencies: [dependence('gnurx'), cc.find_library('ws2_32')],
+        compile_args: ['-DThisIsACompileArgTest']
+    ))
+
+
 endif
 
 ####################################################################################################################################
@@ -196,7 +228,10 @@ configuration.set_quoted('CFGOPTDEF_CONFIG_PATH', get_option('configdir'), descr
 configuration.set('FN_NO_RETURN', '__attribute__((__noreturn__))', description: 'Indicate that a function does not return')
 
 ####################################################################################################################################
-# Include subdirs
+# Include subdirs.
 ####################################################################################################################################
-subdir('src')
-subdir('test/src')
+foreach subdir:get_option('subdirs')
+    subdir(subdir)
+endforeach
+
+

@@ -75,6 +75,7 @@ build_code = executable(
     'build-code',
     src_common,
     src_build_code,
+    include_directories: inc_port,
     dependencies: [
         lib_bz2,
         lib_xml,
@@ -232,6 +233,7 @@ executable(
     src_pgbackrest,
     help_auto_c_inc,
     interface_auto_c_inc,
+    include_directories: inc_port,
     dependencies : [
         lib_bz2,
         lib_openssl,

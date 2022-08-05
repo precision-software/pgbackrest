@@ -414,7 +414,9 @@ testRun(void)
             HRN_FORK_CHILD_BEGIN(.expectedExitStatus = UnhandledError.code)
             {
                 // Redirect stderr to stdout (we do not care about the output here since coverage will tell us we hit the code)
+#ifndef WINDOWS_HACK   // on mingw, stderr is an lvalue.
                 stderr = stdout;
+#endif
 
                 THROW(TestChildError, "does not get caught!");
             }

@@ -1,2 +1,4 @@
 option('configdir', type: 'string', value: '/etc/pgbackrest', description: 'Configuration directory')
 option('fatal-errors', type: 'boolean', value: false, description: 'Stop compilation on first error')
+option('repo', type: 'string', value: '.', description: 'location of the pgbackrest repo')
+option('subdirs', type: 'array', value: [ 'src', 'test/src'])

@@ -56,7 +56,8 @@ executable(
     src_test,
     test_help_auto_c_inc,
     test_parse_auto_c_inc,
-    include_directories: include_directories('.', '../../src'),
+    code_port,
+    include_directories:[ include_directories('.', '../../src'), inc_port],
     dependencies: [
         lib_bz2,
         lib_yaml,
