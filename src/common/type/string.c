@@ -272,17 +272,13 @@ strNewZN(const char *string, size_t size)
 
 
 
-// TODO: Separate windows from non-windows.  This code will work temporarily on non-windows.
-/**********************************************************************************************************************************/
-static bool
-charIsSeparator(char c)
+
+bool
+strPathIsAbsolute(const String* this)
 {
-#ifdef WINDOWS_HACK
-    return c == '/' || c == '\\';
-#else
-    return c == '/';
-#endif
+    return strPathIsAbsoluteZ(strZ(this));
 }
+
 
 /**********************************************************************************************************************************/
 String *
@@ -786,41 +782,6 @@ strPath(const String *this)
 }
 
 
-bool
-strPathIsAbsoluteZ(const char *this)
-{
-#ifdef WINDOWS_HACK
-    // If starts with "/" or with "x:/" then it is an absolute path on windows.
-    return (strlen(this) >= 1 && charIsSeparator(this[0]))
-           || (strlen(this) >= 3 && isalpha(this[0]) && this[1] == ':' && charIsSeparator(this[2]));
-#else
-    return strlen(this) >= 1 && charIsSeparator(this[0]);
-#endif
-}
-
-
-// Note: always duplicates the string
-String *
-strPathNormalize(const String *this)
-{
-#ifdef WINDOWS_HACK
-    return strReplaceChr(strDup(this), '\\', '/');
-#else
-    return strDup(this);
-#endif
-}
-
-
-
-
-bool
-strPathIsAbsolute(const String* this)
-{
-    return strPathIsAbsoluteZ(strZ(this));
-}
-
-
-
 
 
 /**********************************************************************************************************************************/
@@ -836,7 +797,7 @@ strPathAbsolute(const String *this, const String *base)
 
     String *result = NULL;
 
-    // Path is already absolute so just return it
+    // Path is already absolute so just return a clean copy of it.
     if (strPathIsAbsolute(this))
     {
         result = strPathNormalize(this);
@@ -856,11 +817,11 @@ strPathAbsolute(const String *this, const String *base)
             StringList *baseList = strLstNewSplit(strPathNormalize(base), FSLASH_STR);
             StringList *pathList = strLstNewSplit(strPathNormalize(this), FSLASH_STR);
 
+            // Do for each part of the relative path.  TODO: Note n^2 algorithm. Better to index through sequentially.
             while (!strLstEmpty(pathList))
             {
                 const String *pathPart = strLstGet(pathList, 0);
 
-                // If the last part is empty
                 if (strSize(pathPart) == 0)
                 {
                     // Allow when this is the last part since it just means there was a trailing /
@@ -888,12 +849,15 @@ strPathAbsolute(const String *this, const String *base)
                 strLstRemoveIdx(pathList, 0);
             }
 
+            // Note the final path must be absolute, meaning there must be a slash, meaning there must be two parts to join.
+            //    Add an empty second part if need be. It just means we are the root.
+            if (strLstSize(baseList) == 1)
+                strLstAddZ(baseList, "");
+
             MEM_CONTEXT_PRIOR_BEGIN()
             {
-                //if (strLstSize(baseList) == 1)
-                //    result = strDup(FSLASH_STR);
-                //else
-                    result = strLstJoin(baseList, "/");
+                // Create a new absolute path from the individual parts.
+                result = strLstJoin(baseList, "/");
             }
             MEM_CONTEXT_PRIOR_END();
         }
@@ -1191,3 +1155,75 @@ strSizeFormat(const uint64_t size)
 
     FUNCTION_TEST_RETURN(STRING, result);
 }
+
+
+
+
+/**********************************************************************************************************************************
+
+ Windows specific code
+
+***********************************************************************************************************************************/
+#ifdef WINDOWS_HACK
+
+
+
+bool
+charIsSeparator(char c)
+{
+    return c == '/' || c == '\\';
+}
+
+
+bool
+strPathIsAbsoluteZ(const char *this)
+{
+    // If starts with "/" or with "x:/" then it is an absolute path on windows.
+    return (strlen(this) >= 1 && charIsSeparator(this[0]))
+           || (strlen(this) >= 3 && isalpha(this[0]) && this[1] == ':' && charIsSeparator(this[2]));
+}
+
+
+// Note: always duplicates the string
+String *
+strPathNormalize(const String *this)
+{
+    strReplaceChr(strDup(this), '\\', '/');
+}
+
+
+/***********************************************************************************************************************************
+
+ Otherwise, POSIX code
+
+***********************************************************************************************************************************/
+#else
+
+
+bool
+charIsSeparator(char c)
+{
+    return c == '/';
+}
+
+
+bool
+strPathIsAbsoluteZ(const char *this)
+{
+    return strlen(this) >= 1 && charIsSeparator(this[0]);
+}
+
+
+// Note: always duplicates the string. May need to free the copy to avoid memory leak.
+String *
+strPathNormalize(const String *this)
+{
+    String *copy = strDup(this);
+    return strDup(this);
+}
+
+
+
+#endif
+
+

@@ -168,17 +168,20 @@ String *strFirstLower(String *this);
 // Upper-case entire string
 String *strUpper(String *this);
 
-/// Upper-case entire string
+// Upper-case entire string
 String *strLower(String *this);
 
-/// Return the path part of a string (i.e. everything before the last / or "" if there is no /)
+// Return the path part of a string (i.e. everything before the last / or "" if there is no /)
 String *strPath(const String *this);
 
-/// Is the string an absolute path?
+// Is the string an absolute path?
 bool strPathIsAbsoluteZ(const char *this);
 
-/// Is this an absolute path?
+// Is this an absolute path?
 bool strPathIsAbsolute(const String *this);
+
+// Is this character a path separator character?
+bool charIsSeparator(char c);
 
 
 /***********************************************************************************************************************************
