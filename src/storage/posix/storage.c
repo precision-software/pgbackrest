@@ -251,6 +251,9 @@ storagePosixMove(THIS_VOID, StorageRead *source, StorageWrite *destination, Stor
         const String *destinationPath = strPath(destinationFile);
 
         // Attempt to move the file
+#ifdef WINDOWS_HACK
+       // unlink(strZ(destinationFile));
+#endif
         if (rename(strZ(sourceFile), strZ(destinationFile)) == -1)
         {
             // Determine which file/path is missing
@@ -426,7 +429,6 @@ storagePosixPathRemove(THIS_VOID, const String *path, bool recurse, StorageInter
                         if (unlink(strZ(file)) == -1)                                                               // {vm_covered}
                         {
                             // These errors indicate that the entry is actually a path so we'll try to delete it that way
-                            LOG_INFO_FMT("After posix unlink, got errno=%d\n  file=%s", errno, strZ(file));
                             if (errno == EPERM || errno == EISDIR || errno == EACCES)             // TODO: EACCESS is windows error return.  // {uncovered_branch - no EPERM on tested systems}
                             {
                                 storageInterfacePathRemoveP(this, file, true);

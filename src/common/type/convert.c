@@ -3,6 +3,10 @@ Convert C Types
 ***********************************************************************************************************************************/
 #include "build.auto.h"
 
+#define DEBUG_TEST_TRACE
+#define DEBUG
+
+
 #include <ctype.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -415,9 +419,9 @@ cvtTimeToZ(time_t value, char *buffer, size_t bufferSize)
 
     ASSERT(buffer != NULL);
 
-    struct tm timePart;
-    size_t result = strftime(buffer, bufferSize, "%s", localtime_r(&value, &timePart));
-
+    // Formerly used strftime "%s" to format the number of seconds since the epoch started.
+    //    Windows doesn't support the "%s" format string, so just do the equivalent conversion as a 64-bit integer.
+    size_t result = cvtUInt64ToZ((uint64_t)value, buffer, bufferSize);
     if (result == 0)
         THROW(AssertError, "buffer overflow");
 

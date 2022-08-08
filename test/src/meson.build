@@ -47,6 +47,9 @@ src_test = [
     'command/test/test.c',
     'config/load.c',
     'main.c',
+    '../../src/port/mingw/dirmod.c',
+    '../../src/port/mingw/pgsleep.c',
+    '../../src/port/mingw/strlcpy.c',
 ]
 
 executable(

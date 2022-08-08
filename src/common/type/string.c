@@ -1188,7 +1188,7 @@ strPathIsAbsoluteZ(const char *this)
 String *
 strPathNormalize(const String *this)
 {
-    strReplaceChr(strDup(this), '\\', '/');
+    return strReplaceChr(strDup(this), '\\', '/');
 }
 
 

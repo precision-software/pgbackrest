@@ -70,6 +70,13 @@ unsigned int testIdx(void);
 Test that an expected error is actually thrown and error when it isn't
 ***********************************************************************************************************************************/
 #define TEST_ERROR(statement, errorTypeExpected, errorMessageExpected)                                                             \
+    TEST_ERROR_MESSAGES(statement, errorTypeExpected, &(errorMessageExpected), 1)
+
+
+/***********************************************************************************************************************************
+Test that an expected error occurred, and that one of the error messages matches
+***********************************************************************************************************************************/
+#define TEST_ERROR_MESSAGES(statement, errorTypeExpected, errorMessageExpected, nrErrorMessages)                                   \
 {                                                                                                                                  \
     bool TEST_ERROR_catch = false;                                                                                                 \
                                                                                                                                    \
@@ -77,7 +84,7 @@ Test that an expected error is actually thrown and error when it isn't
     FUNCTION_HARNESS_STACK_TRACE_LINE_SET(__LINE__);                                                                               \
                                                                                                                                    \
     hrnTestLogPrefix(__LINE__);                                                                                                    \
-    printf("expect %s: %s\n", errorTypeName(&errorTypeExpected), errorMessageExpected);                                            \
+    printf("expect %s: %s\n", errorTypeName(&(errorTypeExpected)), errorMessageExpected[0]);                                       \
     fflush(stdout);                                                                                                                \
                                                                                                                                    \
     TRY_BEGIN()                                                                                                                    \
@@ -87,18 +94,23 @@ Test that an expected error is actually thrown and error when it isn't
     CATCH_FATAL()                                                                                                                  \
     {                                                                                                                              \
         TEST_ERROR_catch = true;                                                                                                   \
-                                                                                                                                   \
-        if (strcmp(errorMessage(), errorMessageExpected) != 0 || errorType() != &errorTypeExpected)                                \
+        /* Does the error message match one of the expected error messages? */                                                     \
+        int msgIdx;                                                                                                                \
+        for (msgIdx=0; msgIdx<(nrErrorMessages); msgIdx++)                                                                         \
+            if (strcmp(errorMessage(), (errorMessageExpected)[msgIdx]) == 0)                                                       \
+                break;                                                                                                             \
+        /* If no match, then raise a testing error. */                                                                              \
+        if (msgIdx >= (nrErrorMessages))                                                                                           \
             THROW_FMT(                                                                                                             \
-                TestError, "EXPECTED %s: %s\n\n BUT GOT %s: %s\n\nTHROWN AT:\n%s", errorTypeName(&errorTypeExpected),              \
-                errorMessageExpected, errorName(), errorMessage(), errorStackTrace());                                             \
+                TestError, "EXPECTED %s: %s\n\n BUT GOT %s: %s\n\nTHROWN AT:\n%s", errorTypeName(&(errorTypeExpected)),            \
+                (errorMessageExpected)[0], errorName(), errorMessage(), errorStackTrace());                                        \
     }                                                                                                                              \
     TRY_END();                                                                                                                     \
                                                                                                                                    \
     if (!TEST_ERROR_catch)                                                                                                         \
         THROW_FMT(                                                                                                                 \
-            TestError, "statement '%s' returned but error %s, '%s' was expected", #statement, errorTypeName(&errorTypeExpected),   \
-            errorMessageExpected);                                                                                                 \
+            TestError, "statement '%s' returned but error %s, '%s' was expected", #statement, errorTypeName(&(errorTypeExpected)), \
+            (errorMessageExpected)[0]);                                                                                            \
                                                                                                                                    \
     FUNCTION_HARNESS_STACK_TRACE_LINE_SET(0);                                                                                      \
 }

@@ -414,7 +414,7 @@ testRun(void)
             HRN_FORK_CHILD_BEGIN(.expectedExitStatus = UnhandledError.code)
             {
                 // Redirect stderr to stdout (we do not care about the output here since coverage will tell us we hit the code)
-                stderr = stdout;
+                //  stderr = stdout;  // TODO: Is this legal?  Fails to compile under Mngw
 
                 THROW(TestChildError, "does not get caught!");
             }

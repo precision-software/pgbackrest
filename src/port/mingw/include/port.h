@@ -54,6 +54,7 @@ typedef useconds_t suseconds_t;
 // User permissions.  These are "no-op" stubs.
 static uid_t getuid() {return 0;}
 static gid_t getgid() {return 0;}
+static pid_t getsid() {return 0;}
 static int chown(const char *name, uid_t user, gid_t group) {return 0;};
 
 // flock() not implemented on mingw, but gnu portable library may have an implementation.
@@ -172,11 +173,17 @@ static int kill(pid_t pid, int signal) {MISSING;}
 #define lchown(name, uid, gid)  chown(name, uid, gid)
 #define S_ISLNK(type) 0
 
+/* Except, here we do. In transition.
 #define symlink(oldpath, newpath)	pgsymlink(oldpath, newpath)
 #define readlink(path, buf, size)	pgreadlink(path, buf, size)
 extern int	pgsymlink(const char *oldpath, const char *newpath);
 extern int	pgreadlink(const char *path, char *buf, size_t size);
 extern bool pgwin32_is_junction(const char *path);
+
+#define unlink(path) pgunlink(path)
+#define rename(from,to) pgrename(from,to)
+extern int pgunlink(const char *path);
+extern int pgrename(const char *from, const char *to);
 
 
 
@@ -256,6 +263,8 @@ extern int	pgwin32_is_admin(void);
 extern BOOL AddUserToTokenDacl(HANDLE hToken);
 
 
+/* These macros got defined somehow by the Windows include files.  They interfere with pgbackrest, so drop them. */
+#undef VOID
 
 
 #endif //PGBACKREST_PORT_H

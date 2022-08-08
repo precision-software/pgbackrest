@@ -27,6 +27,23 @@ timeMSec(void)
     FUNCTION_TEST_RETURN(TIME_MSEC, ((TimeMSec)currentTime.tv_sec * MSEC_PER_SEC) + (TimeMSec)currentTime.tv_usec / MSEC_PER_USEC);
 }
 
+#ifdef WINDOWS_HACK
+/**********************************************************************************************************************************/
+void
+sleepMSec(TimeMSec sleepMSec)
+{
+    FUNCTION_TEST_BEGIN();
+    FUNCTION_TEST_PARAM(UINT64, sleepMSec);
+    FUNCTION_TEST_END();
+
+    if (sleepMSec > 0)
+    {
+        SleepEx(sleepMSec, FALSE);
+    }
+    FUNCTION_TEST_RETURN_VOID();
+}
+
+#else
 /**********************************************************************************************************************************/
 void
 sleepMSec(TimeMSec sleepMSec)
@@ -45,6 +62,9 @@ sleepMSec(TimeMSec sleepMSec)
 
     FUNCTION_TEST_RETURN_VOID();
 }
+#endif
+
+
 
 /**********************************************************************************************************************************/
 void

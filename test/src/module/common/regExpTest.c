@@ -2,6 +2,8 @@
 Test Regular Expression Handler
 ***********************************************************************************************************************************/
 
+#include "common/harnessTest.h"
+
 /***********************************************************************************************************************************
 Test Run
 ***********************************************************************************************************************************/
@@ -14,38 +16,24 @@ testRun(void)
     if (testBegin("regExpNew(), regExpMatch(), and regExpFree()"))
     {
         // Error message varies based on the libc version/OS
-        TRY_BEGIN()
-        {
-            // Older libc
-            TEST_ERROR(regExpNew(STRDEF("[[[")), FormatError, "Unmatched [ or [^");
-        }
-        CATCH(TestError)
-        {
-            TRY_BEGIN()
-            {
-                // Newer libc
-                TEST_ERROR(regExpNew(STRDEF("[[[")), FormatError, "Unmatched [, [^, [:, [., or [=");
-            }
-            CATCH(TestError)
-            {
-                // MacOS
-                TEST_ERROR(regExpNew(STRDEF("[[[")), FormatError, "brackets ([ ]) not balanced");
-            }
-            TRY_END();
-        }
-        TRY_END();
+        char *messages[] = {
+                "Unmatched [ or [^",                           // Older libc
+                "Unmatched [, [^, [:, [., or [=",              // New libc
+                "brackets ([ ]) not balanced",                 // MacOS
+                "Missing ']'",                                 // MinGW
+                };
 
-        TRY_BEGIN()
-        {
-            // libc
-            TEST_ERROR(regExpErrorCheck(REG_BADBR), FormatError, "Invalid content of \\{\\}");
-        }
-        CATCH(TestError)
-        {
-            // MacOS
-            TEST_ERROR(regExpErrorCheck(REG_BADBR), FormatError, "invalid repetition count(s)");
-        }
-        TRY_END();
+        TEST_ERROR_MESSAGES(regExpNew(STRDEF("[[[")), FormatError, messages, sizeof(messages)/sizeof(*messages));
+
+
+        char *badbrMessages[] = {
+                "Invalid content of \\{\\}",
+                "invalid repetition count(s)",
+                "Invalid contents of {}"
+        };
+
+        TEST_ERROR_MESSAGES(regExpErrorCheck(REG_BADBR), FormatError, badbrMessages, sizeof(badbrMessages)/sizeof(*badbrMessages));
+
 
         // -------------------------------------------------------------------------------------------------------------------------
         TEST_TITLE("new regexp");
