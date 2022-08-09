@@ -173,7 +173,7 @@ static int kill(pid_t pid, int signal) {MISSING;}
 #define lchown(name, uid, gid)  chown(name, uid, gid)
 #define S_ISLNK(type) 0
 
-/* Except, here we do. In transition.
+/* Except, here we do. In transition. */
 #define symlink(oldpath, newpath)	pgsymlink(oldpath, newpath)
 #define readlink(path, buf, size)	pgreadlink(path, buf, size)
 extern int	pgsymlink(const char *oldpath, const char *newpath);

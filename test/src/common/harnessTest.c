@@ -138,7 +138,7 @@ testBegin(const char *name)
                 fflush(stderr);
                 exit(255);
             }
-
+#ifndef WINDOWS_HACK
             // Clear out the test directory so the next test starts clean
             char buffer[2048];
             snprintf(
@@ -163,7 +163,7 @@ testBegin(const char *name)
                 fflush(stderr);
                 exit(255);
             }
-
+#endif
             // Clear any log replacements
             hrnLogReplaceClear();
         }
