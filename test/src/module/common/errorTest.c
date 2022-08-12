@@ -328,9 +328,13 @@ testRun(void)
         }
         CATCH_FATAL()
         {
-            printf("%s\n", errorMessage());
+            // Format the expected error message.
+            //    Different OS's have slightly different error messages, so use strerror(E2BIG) instead of a fixed string.
+            char expected[1024];
+            snprintf(expected, sizeof(expected), "message: [%d] %s", E2BIG, strerror(E2BIG));
+            printf("Expecting '%s'  Got '%s'\n", expected, errorMessage());
             assert(errorCode() == AssertError.code);
-            assert(strcmp(errorMessage(), "message: [7] Argument list too long") == 0);
+            assert(strcmp(errorMessage(), expected) == 0);
         }
         TRY_END();
 
@@ -342,7 +346,7 @@ testRun(void)
         }
         CATCH_FATAL()
         {
-            printf("%s\n", errorMessage());
+            printf("Expecting 'message 77',  got '%s'\n", errorMessage());
             assert(errorCode() == AssertError.code);
             assert(strcmp(errorMessage(), "message 77") == 0);
         }
@@ -356,9 +360,11 @@ testRun(void)
         }
         CATCH_FATAL()
         {
-            printf("%s\n", errorMessage());
+            char expected[1024];
+            snprintf(expected, sizeof(expected), "message 77: [%d] %s", E2BIG, strerror(E2BIG));
+            printf("Expecting '%s'  Got '%s'\n", expected, errorMessage());
             assert(errorCode() == AssertError.code);
-            assert(strcmp(errorMessage(), "message 77: [7] Argument list too long") == 0);
+            assert(strcmp(errorMessage(), expected) == 0);
         }
         TRY_END();
 

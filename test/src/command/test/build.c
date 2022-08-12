@@ -66,8 +66,8 @@ testBldNew(
         {
             .pub =
             {
-                .pathRepo = strDup(pathRepo),
-                .pathTest = strDup(pathTest),
+                .pathRepo = strPathNormalize(pathRepo),
+                .pathTest = strPathNormalize(pathTest),
                 .vm = strDup(vm),
                 .vmId = vmId,
                 .module = module,
@@ -216,8 +216,8 @@ cmdBldPathRelative(const String *const base, const String *const compare)
 
     MEM_CONTEXT_TEMP_BEGIN()
     {
-        const StringList *const baseList = strLstNewSplitZ(base, "/");
-        const StringList *const compareList = strLstNewSplitZ(compare, "/");
+        const StringList *const baseList = strLstNewSplitZ(strPathNormalize(base), "/");
+        const StringList *const compareList = strLstNewSplitZ(strPathNormalize(compare), "/");
         unsigned int compareIdx = 0;
 
         // Find the part of the paths that is the same
@@ -434,11 +434,23 @@ testBldUnit(TestBuild *const this)
             mesonBuild,
             "    '%s/test/src/common/harnessTest.c',\n"
             "    'test.c',\n"
+            "     '%s/src/port/mingw/dirmod.c',\n"
+            "     '%s/src/port/mingw/win32error.c',\n"
+            "     '%s/src/port/mingw/strlcpy.c',\n"
+            "     '%s/src/port/mingw/pgsleep.c',\n"
+            "     '%s/src/port/mingw/system.c',\n"
+            "     '%s/src/port/mingw/flock.c',\n"
             ")\n"
             "\n"
             "executable(\n"
             "    'test-unit',\n"
             "    sources: src_unit,\n",
+            strZ(pathRepoRel),
+            strZ(pathRepoRel),
+            strZ(pathRepoRel),
+            strZ(pathRepoRel),
+            strZ(pathRepoRel),
+            strZ(pathRepoRel),
             strZ(pathRepoRel));
 
         // Add C args

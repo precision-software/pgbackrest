@@ -35,18 +35,13 @@
 #include <direct.h>
 #undef near
 #undef interface
-
-#ifdef NOTYET
-/* needed before sys/stat hacking below: */
-#define fstat microsoft_native_fstat
-#define stat microsoft_native_stat
-#include <sys/stat.h>
-#undef fstat
-#undef stat
-#endif
+#undef system
+#undef popen
 
 // Fill in some missing types.
 #include <stdbool.h>  // C99's "bool"
+#include <fcntl.h>
+
 typedef int gid_t;
 typedef int uid_t;
 typedef useconds_t suseconds_t;
@@ -55,29 +50,67 @@ typedef useconds_t suseconds_t;
 static uid_t getuid() {return 0;}
 static gid_t getgid() {return 0;}
 static pid_t getsid() {return 0;}
-static int chown(const char *name, uid_t user, gid_t group) {return 0;};
+static int chown(const char *path, uid_t user, gid_t group) {return 0;};
 
-// flock() not implemented on mingw, but gnu portable library may have an implementation.
-static int flock(int fd, int operation) {MISSING;}
-#define LOCK_EX (MISSING,0)
-#define LOCK_SH (MISSING,0)
-#define LOCK_NB (MISSING,0)
+// File locking.
+#undef flock
+#define flock(fd, op) pgflock(fd, op)
+extern int pgflock(int fd, int operation);
+#define LOCK_OP 3  // Mask to extract operation.
+#define LOCK_EX 1
+#define LOCK_SH 2
+#define LOCK_UN 3
+#define LOCK_NB 128
+
+// File masks
+#undef umask
+#define umask(mask) pgumask(mask)
 
 // fcntl operations
-#define F_GETFL (MISSING,0)
-#define F_SETFL (MISSING,0)
-#define O_NONBLOCK (MISSING,0)
+#define F_GETFL (MISSING)
+#define F_SETFL (MISSING)
+#define O_NONBLOCK (MISSING)
 static int fcntl(int fd, int operation, ...){MISSING;}
 
 // Simply missing and need to be implemented (or removed)
-static int setsid(void) {MISSING;}
+static int setsid(void) {return 0;}
 static pid_t fork(void) {MISSING;}
-static int pipe(int pipefd[2]) {MISSING;}
-static int link(const char *oldpath, const char *newpath) {MISSING;}
+
+
+static int
+pipe(int pipefd[2]) {
+    return _pipe(pipefd, 10240, O_BINARY);
+}
 
 
 /* Windows mkdir has a single parameter. Ignore the second posix parameter until we deal with user permissions. */
 #define mkdir(a,b)	mkdir(a)
+
+// Add text to a string buffer.
+extern char *strAppend(char *bp, char const *bufEnd, const char *str);
+extern char *strAppendFmt(char *bp, char const *bufEnd, const char *format, ...);
+
+static int
+setenv(const char *name, const char *value, int overwrite) {
+    // TODO: we treat overwrite as always true.
+
+    // Allocate a temp buffer. Should we malloc()?
+    char buffer[10*1024];
+    char const *bufEnd = buffer+sizeof(buffer);
+
+    // Build up a string  "key=value"
+    char *bp = strAppend(buffer, bufEnd, name);
+    bp = strAppend(bp, bufEnd, "=");
+    bp = strAppend(bp, bufEnd, value);
+
+    // Add the string to the environment.
+    return _putenv(buffer);
+}
+
+static int
+unsetenv(const char *name) {
+    return setenv(name,"",true);
+}
 
 // Simple wrappers not in winsock2, but could be.
 #define ftruncate(a,b)	chsize(a,b)
@@ -169,6 +202,9 @@ static int kill(pid_t pid, int signal) {MISSING;}
 
 
 /* For now, we don't support reading symbolic links on Windows. */
+#undef stat
+#include <sys/stat.h>
+#define stat _stat64
 #define lstat(name, status)  stat(name, status)
 #define lchown(name, uid, gid)  chown(name, uid, gid)
 #define S_ISLNK(type) 0
@@ -244,16 +280,16 @@ extern int pgrename(const char *from, const char *to);
 
 
 extern int	pgwin32_noblock;
-extern void _dosmaperr(unsigned long);
 
 
-// Envioronment variables
-#define putenv(x) pgwin32_putenv(x)
-#define setenv(x,y,z) pgwin32_setenv(x,y,z)
-#define unsetenv(x) pgwin32_unsetenv(x)
-extern int	pgwin32_putenv(const char *);
-extern int	pgwin32_setenv(const char *name, const char *value, int overwrite);
-extern int	pgwin32_unsetenv(const char *name);
+// Environment variables
+// use ucrt's setenv,getenv
+
+// Redefine system() call. On Mingw, we want to intercept it and send to shell rather than cmd.
+#undef system
+#include <stdio.h>
+#define system(cmd)  pgsystem(cmd)
+extern int pgsystem(const char *cmd);
 
 /* in port/win32security.c */
 extern int	pgwin32_is_service(void);

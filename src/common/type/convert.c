@@ -3,16 +3,12 @@ Convert C Types
 ***********************************************************************************************************************************/
 #include "build.auto.h"
 
-#define DEBUG_TEST_TRACE
-#define DEBUG
-
-
 #include <ctype.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+//#include <string.h>
 #include <time.h>
 
 #include "common/debug.h"

@@ -27,7 +27,7 @@ testRun(void)
         TEST_RESULT_UINT(groupId(), TEST_GROUP_ID, "check group id");
         TEST_RESULT_UINT(groupIdFromName(groupName()), groupId(), "get group id");
         TEST_RESULT_UINT(groupIdFromName(NULL), (gid_t)-1, "get null group id");
-        TEST_RESULT_UINT(groupIdFromName(STRDEF("bogus")), (uid_t)-1, "get bogus group id");
+        TEST_RESULT_UINT(groupIdFromName(STRDEF("bogus")), (gid_t)-1, "get bogus group id");
         TEST_RESULT_STR(groupName(), TEST_GROUP_STR, "check name name");
         TEST_RESULT_STR_Z(groupNameFromId(77777), NULL, "invalid group name by id");
     }

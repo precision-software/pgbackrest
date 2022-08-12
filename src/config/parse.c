@@ -2246,10 +2246,10 @@ configParse(const Storage *storage, unsigned int argListSize, const char *argLis
                                     if (optionType == cfgOptTypePath)
                                     {
                                         // Make sure it starts with /
-                                        if (!strBeginsWithZ(value, "/"))
+                                        if (!strPathIsAbsolute(value))
                                         {
                                             THROW_FMT(
-                                                OptionInvalidValueError, "'%s' must begin with / for '%s' option", strZ(value),
+                                                OptionInvalidValueError, "'%s' must be an absolute path for '%s' option", strZ(value),
                                                 cfgParseOptionKeyIdxName(optionId, optionKeyIdx));
                                         }
 
@@ -2262,7 +2262,7 @@ configParse(const Storage *storage, unsigned int argListSize, const char *argLis
                                         }
 
                                         // If the path ends with a / we'll strip it off (unless the value is just /)
-                                        if (strEndsWithZ(value, "/") && strSize(value) != 1)
+                                        if (strEndsWithZ(value, "/") && strSize(value) != 1) // TODO: Will fail on windows  C:/
                                         {
                                             strTruncIdx(value, (int)strSize(value) - 1);
 

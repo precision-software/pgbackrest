@@ -99,110 +99,68 @@ pgunlink(const char *path)
 #define rename(from, to)		pgrename(from, to)
 #define unlink(path)			pgunlink(path)
 
-
-
-/*
- *	pgsymlink support:
+/*-------------------------------------------------------------------------
  *
- *	This struct is a replacement for REPARSE_DATA_BUFFER which is defined in VC6 winnt.h
- *	but omitted in later SDK functions.
- *	We only need the SymbolicLinkReparseBuffer part of the original struct's union.
- */
-#define FLEXIBLE_ARRAY_MEMBER /* empty */
-#define _(string)  string
-typedef struct
-{
-	DWORD		ReparseTag;
-	WORD		ReparseDataLength;
-	WORD		Reserved;
-	/* SymbolicLinkReparseBuffer */
-	WORD		SubstituteNameOffset;
-	WORD		SubstituteNameLength;
-	WORD		PrintNameOffset;
-	WORD		PrintNameLength;
-	WCHAR		PathBuffer[FLEXIBLE_ARRAY_MEMBER];
-} REPARSE_JUNCTION_DATA_BUFFER;
-
-#define REPARSE_JUNCTION_DATA_BUFFER_HEADER_SIZE   \
-		FIELD_OFFSET(REPARSE_JUNCTION_DATA_BUFFER, SubstituteNameOffset)
-
-
-/*
- *	pgsymlink - uses Win32 junction points
+ * link.c
  *
- *	For reference:	http://www.codeproject.com/KB/winsdk/junctionpoints.aspx
+ * Portions Copyright (c) 1996-2022, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1994, Regents of the University of California
+ *
+ *
+ * IDENTIFICATION
+ *	  src/port/link.c
+ *
+ *-------------------------------------------------------------------------
  */
+
+#include <winsock2.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#define stat _stat64
+
 int
-pgsymlink(const char *oldpath, const char *newpath)
+link(const char *src, const char *dst)
 {
-	HANDLE		dirhandle;
-	DWORD		len;
-	char		buffer[MAX_PATH * sizeof(WCHAR) + offsetof(REPARSE_JUNCTION_DATA_BUFFER, PathBuffer)];
-	char		nativeTarget[MAX_PATH];
-	char	   *p = nativeTarget;
-	REPARSE_JUNCTION_DATA_BUFFER *reparseBuf = (REPARSE_JUNCTION_DATA_BUFFER *) buffer;
+    if (CreateHardLinkA(dst, src, NULL) == 0)
+    {
+        errno = (int)GetLastError();  // TODO: map dos error
+        return -1;
+    }
 
-	CreateDirectory(newpath, 0);
-	dirhandle = CreateFile(newpath, GENERIC_READ | GENERIC_WRITE,
-						   0, 0, OPEN_EXISTING,
-						   FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, 0);
-
-	if (dirhandle == INVALID_HANDLE_VALUE)
-		return -1;
-
-	/* make sure we have an unparsed native win32 path */
-	if (memcmp("\\??\\", oldpath, 4) != 0)
-		snprintf(nativeTarget, sizeof(nativeTarget), "\\??\\%s", oldpath);
-	else
-		strlcpy(nativeTarget, oldpath, sizeof(nativeTarget));
-
-	while ((p = strchr(p, '/')) != NULL)
-		*p++ = '\\';
-
-	len = strlen(nativeTarget) * sizeof(WCHAR);
-	reparseBuf->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
-	reparseBuf->ReparseDataLength = len + 12;
-	reparseBuf->Reserved = 0;
-	reparseBuf->SubstituteNameOffset = 0;
-	reparseBuf->SubstituteNameLength = len;
-	reparseBuf->PrintNameOffset = len + sizeof(WCHAR);
-	reparseBuf->PrintNameLength = 0;
-	MultiByteToWideChar(CP_ACP, 0, nativeTarget, -1,
-						reparseBuf->PathBuffer, MAX_PATH);
-
-	/*
-	 * FSCTL_SET_REPARSE_POINT is coded differently depending on SDK version;
-	 * we use our own definition
-	 */
-	if (!DeviceIoControl(dirhandle,
-						 CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 41, METHOD_BUFFERED, FILE_ANY_ACCESS),
-						 reparseBuf,
-						 reparseBuf->ReparseDataLength + REPARSE_JUNCTION_DATA_BUFFER_HEADER_SIZE,
-						 0, 0, &len, 0))
-	{
-		LPSTR		msg;
-
-		errno = 0;
-		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-					  FORMAT_MESSAGE_IGNORE_INSERTS |
-					  FORMAT_MESSAGE_FROM_SYSTEM,
-					  NULL, GetLastError(),
-					  MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
-					  (LPSTR) &msg, 0, NULL);
-
-		fprintf(stderr, _("could not set junction for \"%s\": %s\n"),   // TODO: log error.
-				nativeTarget, msg);
-		LocalFree(msg);
-
-		CloseHandle(dirhandle);
-		RemoveDirectory(newpath);
-		return -1;
-	}
-
-	CloseHandle(dirhandle);
-
-	return 0;
+    return 0;
 }
+
+
+
+bool
+is_directory(const char *path) {
+    struct stat status[1];
+    if (stat(path, status) == -1)
+        return false;
+    return S_ISDIR(status->st_mode);
+}
+
+int
+pgsymlink(const char *target, const char *linkpath) {
+
+    // Set up the flags, including a quick check if it is a directory or not.
+    DWORD flags = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+    if (is_directory(linkpath))
+        flags |= SYMBOLIC_LINK_FLAG_DIRECTORY;
+
+    // Create the link and check for errors.
+    int ret = CreateSymbolicLinkA(linkpath, target, flags);
+    if (ret == 0) {
+        errno = (int)GetLastError();  // TODO: map error.
+        return -1;
+    }
+
+    // All is fine.
+    return 0;
+}
+
 
 /*
  *	pgreadlink - uses Win32 junction points
@@ -210,112 +168,43 @@ pgsymlink(const char *oldpath, const char *newpath)
 int
 pgreadlink(const char *path, char *buf, size_t size)
 {
-	DWORD		attr;
-	HANDLE		h;
-	char		buffer[MAX_PATH * sizeof(WCHAR) + offsetof(REPARSE_JUNCTION_DATA_BUFFER, PathBuffer)];
-	REPARSE_JUNCTION_DATA_BUFFER *reparseBuf = (REPARSE_JUNCTION_DATA_BUFFER *) buffer;
-	DWORD		len;
-	int			r;
-
-	attr = GetFileAttributes(path);
-	if (attr == INVALID_FILE_ATTRIBUTES)
-	{
-		_dosmaperr(GetLastError());
-		return -1;
-	}
-	if ((attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	h = CreateFile(path,
-				   GENERIC_READ,
-				   FILE_SHARE_READ | FILE_SHARE_WRITE,
-				   NULL,
-				   OPEN_EXISTING,
-				   FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
-				   0);
-	if (h == INVALID_HANDLE_VALUE)
-	{
-		_dosmaperr(GetLastError());
-		return -1;
-	}
-
-	if (!DeviceIoControl(h,
-						 FSCTL_GET_REPARSE_POINT,
-						 NULL,
-						 0,
-						 (LPVOID) reparseBuf,
-						 sizeof(buffer),
-						 &len,
-						 NULL))
-	{
-		LPSTR		msg;
-
-		errno = 0;
-		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-					  FORMAT_MESSAGE_IGNORE_INSERTS |
-					  FORMAT_MESSAGE_FROM_SYSTEM,
-					  NULL, GetLastError(),
-					  MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
-					  (LPSTR) &msg, 0, NULL);
-
-		fprintf(stderr, _("could not get junction for \"%s\": %s\n"),   // TODO: log error
-				path, msg);
-
-		LocalFree(msg);
-		CloseHandle(h);
-		errno = EINVAL;
-		return -1;
-	}
-	CloseHandle(h);
-
-	/* Got it, let's get some results from this */
-	if (reparseBuf->ReparseTag != IO_REPARSE_TAG_MOUNT_POINT)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	r = WideCharToMultiByte(CP_ACP, 0,
-							reparseBuf->PathBuffer, -1,
-							buf,
-							size,
-							NULL, NULL);
-
-	if (r <= 0)
-	{
-		errno = EINVAL;
-		return -1;
-	}
-
-	/*
-	 * If the path starts with "\??\", which it will do in most (all?) cases,
-	 * strip those out.
-	 */
-	if (r > 4 && strncmp(buf, "\\??\\", 4) == 0)
-	{
-		memmove(buf, buf + 4, strlen(buf + 4) + 1);
-		r -= 4;
-	}
-	return r;
+    MISSING;
+    return -1;
 }
 
 /*
  * Assumes the file exists, so will return false if it doesn't
  * (since a nonexistent file is not a junction)
+ * This will be used to augment stat and lstat to handle symbolic links.
  */
 bool
-pgwin32_is_junction(const char *path)
+is_symlink(const char *path)
 {
 	DWORD		attr = GetFileAttributes(path);
-
-	if (attr == INVALID_FILE_ATTRIBUTES)
-	{
-		_dosmaperr(GetLastError());
-		return false;
-	}
-	return ((attr & FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT);
+	return  attr != INVALID_FILE_ATTRIBUTES &&
+         (attr & FILE_ATTRIBUTE_REPARSE_POINT) == FILE_ATTRIBUTE_REPARSE_POINT;
 }
 
+// Remember the previous value of umask.
+static int pgmask = 0;
+
+/***********************************************************************************************************************************
+ * umask sets a new user mask and returns the old.
+ *    On Windows, umask is a noop and the mask is effectively always 0.
+ *    However, applications expect to set and read umasks, so we
+ *    make sure umask() always returns the last set value, even though the value is otherwise ignored.
+ *    Later, we can coordinate with the open/creat stubs to use the mask, as much as can be under Windows.
+ */
+int pgumask(int newMask) {
+#undef umask
+
+    // Update the mask
+    int oldMask = pgmask;
+    if (umask(newMask) == -1)
+        return -1;
+
+    // Remember the new mask.
+    pgmask = newMask;
+    return oldMask;
+
+}

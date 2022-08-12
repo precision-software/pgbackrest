@@ -52,6 +52,8 @@ src_common = files(
 	'port/mingw/dirmod.c',
 	'port/mingw/pgsleep.c',
 	'port/mingw/strlcpy.c',
+	'port/mingw/system.c',
+    'port/mingw/flock.c',
 )
 
 ####################################################################################################################################

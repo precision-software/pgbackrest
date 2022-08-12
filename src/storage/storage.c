@@ -67,11 +67,7 @@ storageNew(
             .interface = interface,
         },
         .memContext = memContextCurrent(),
-#ifdef WINDOWS_HACK
-        .path = strReplaceChr(path, '\\', '/'),
-#else
-        .path = strDup(path),
-#endif
+        .path = strPathNormalize(path),
         .modeFile = modeFile,
         .modePath = modePath,
         .write = write,

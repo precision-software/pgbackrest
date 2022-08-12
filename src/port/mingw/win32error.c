@@ -10,12 +10,11 @@
  *
  *-------------------------------------------------------------------------
  */
+#include <windows.h>
+#include <stdio.h>
+#define lengthof(array)  (sizeof(array)/sizeof(*array))
 
-#include <port.h>
-#include <stdio.h> //  for fprintf, temporary. TODO: use log routines instead.
 
-
-#define lengthof(array) (sizeof(array)/sizeof(*(array)))
 
 static const struct
 {
@@ -184,16 +183,13 @@ _dosmaperr(unsigned long e)
 		{
 			int			doserr = doserrors[i].doserr;
 
-
 			fprintf(stderr, "mapped win32 error code %lu to %d", e, doserr);
-
 			errno = doserr;
 			return;
 		}
 	}
 
 	fprintf(stderr, "unrecognized win32 error code: %lu", e);
-
 
 	errno = EINVAL;
 }

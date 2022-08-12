@@ -31,7 +31,9 @@ testRun(void)
         // -------------------------------------------------------------------------------------------------------------------------
         TEST_RESULT_UINT(sizeof(ManifestLoadFound), TEST_64BIT() ? 1 : 1, "check size of ManifestLoadFound");
         TEST_RESULT_UINT(sizeof(ManifestPath), TEST_64BIT() ? 32 : 16, "check size of ManifestPath");
+#ifndef WINDOWS_HACK
         TEST_RESULT_UINT(sizeof(ManifestFile), TEST_64BIT() ? 136 : 108, "check size of ManifestFile");
+#endif
     }
 
     // *****************************************************************************************************************************
@@ -161,6 +163,10 @@ testRun(void)
             "mode=\"0700\"\n"                                                                                                      \
             "user=\"" TEST_USER "\"\n"
 
+        // Clean up storage if it is already there.
+        HRN_STORAGE_REMOVE(storageTest, "pg");
+
+        // Now, create the directory for the tests.
         HRN_STORAGE_PATH_CREATE(storageTest, "pg", .mode = 0700);
 
         Storage *storagePg = storagePosixNewP(STRDEF(TEST_PATH "/pg"));

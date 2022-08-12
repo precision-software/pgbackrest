@@ -12,24 +12,53 @@
  *-------------------------------------------------------------------------
  */
 
-#include "c.h"
+#include <winsock2.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
-#ifdef WIN32
+#define stat _stat64
+
+
+extern int _dosmaperr(DWORD err);
 
 int
 link(const char *src, const char *dst)
 {
-	/*
-	 * CreateHardLinkA returns zero for failure
-	 * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createhardlinka
-	 */
 	if (CreateHardLinkA(dst, src, NULL) == 0)
 	{
 		_dosmaperr(GetLastError());
 		return -1;
 	}
-	else
-		return 0;
+
+    return 0;
 }
 
-#endif
+
+
+bool
+is_directory(const char *path) {
+    struct stat status[1];
+    if (stat(path, status) == -1)
+        return false;
+    return S_ISDIR(status->st_mode);
+}
+
+int
+symlink(const char *target, const char *linkpath) {
+
+    // Set up the flags, including a quick check if it is a directory or not.
+    DWORD flags = SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+    if (is_directory(linkpath))
+        flags |= SYMBOLIC_LINK_FLAG_DIRECTORY;
+
+    // Create the link and check for errors.
+    int ret = CreateSymbolicLinkA(linkpath, target, flags);
+    if (ret == 0) {
+        errno = _dosmaperr(GetLastError());
+        return -1;
+    }
+
+    // All is fine.
+    return 0;
+}

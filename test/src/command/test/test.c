@@ -113,7 +113,7 @@ cmdTest(
         const String *const pathUnitBuild = strNewFmt("%s/build", strZ(pathUnit));
         const Storage *const storageUnitBuild = storagePosixNewP(pathUnitBuild, .write = true);
 
-        // Remove and create the test data directory. TODO: move this to test-unit?
+        // Remove and create the test data directory. TODO: move this to test-unit?   TODO: what about %s/data-%u?
         const Storage *const pathTestId = storagePosixNewP(
                 strNewFmt("%s/test-%u", strZ(pathTest), vmId), .write = true);
         storagePathRemoveP(pathTestId, NULL, .recurse = true);

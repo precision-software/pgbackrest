@@ -479,6 +479,11 @@ lockReleaseFile(const int lockFd, const String *const lockFile)
     {
         // Remove file first and then close it to release the lock. If we close it first then another process might grab the lock
         // right before the delete which means the file locked by the other process will get deleted.
+#ifdef WINDOWS_HACK
+        // Except windows won't remove a file which is open, thus we must close it first.
+        //   If another process opens the file, then our remove request will fail.
+        close(lockFd);
+#endif
         storageRemoveP(storagePosixNewP(FSLASH_STR, .write = true), lockFile);
         close(lockFd);
     }
