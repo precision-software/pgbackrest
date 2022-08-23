@@ -30,6 +30,7 @@ struct StorageIterator
     String *nameNext;                                               // Name for next info
 };
 
+
 // Path info list
 typedef struct StorageIteratorInfo
 {
@@ -205,15 +206,15 @@ storageItrMore(StorageIterator *const this)
                 this->infoNext.name = this->nameNext;
             }
 
-            // Does the path have content?
+            // Does the path have content?    // TODO: Why do we have this test?  We could just iterate through an empty directory.
             const bool pathContent =
                 this->infoNext.type == storageTypePath && this->recurse && !listInfo->pathContentSkip &&
                 storageItrPathAdd(this, this->infoNext.name).content;
 
             // Clear path content skip flag if it was set on a previous iteration
-            listInfo->pathContentSkip = false;
+            listInfo->pathContentSkip = false;  // TODO: rename to preorder or postorder?  We aren't actually skipping, just rearranging when we do it.
 
-            // Skip info if it does match the provided expression
+            // Skip info if it does match the provided expression  // doesn't match???
             if (this->regExp != NULL && !regExpMatch(this->regExp, this->infoNext.name))
             {
                 // Path content may match the expression even if the path does not. Break so the content on the top of the stack
