@@ -230,7 +230,7 @@ testRun(void)
     if (testBegin("foreach List Iteration")) {
 
         // Create an empty list
-        const List * emptyList = lstNewP(sizeof(int));
+        const List *emptyList = lstNewP(sizeof(int));
 
         // Create a long list
         const int testMax = 100;
@@ -249,23 +249,23 @@ testRun(void)
         int count = 0;
         foreach(item, longList)
         {
-            ASSERT(*value == count);
+            ASSERT(*item == count);
             count++;
         }
         TEST_RESULT_INT(count, testMax, "non-empty List");
 
         // Scan the empty list, inside a collection
         Collection *emptyCollection = NEWCOLLECTION(List, emptyList);
-        FOREACH(int, value, Collection, emptyCollection)
-            ASSERT(*value != *value);  // We shouldn't be here with an empty list
+        FOREACH(int, item, Collection, emptyCollection)
+            ASSERT(*item != *item);  // We shouldn't be here with an empty list
         ENDFOREACH;
         TEST_RESULT_VOID((void) 0, "empty list inside Collection");
 
         // Scan the longer list, inside a collection.
         Collection *longCollection = NEWCOLLECTION(List, longList);
         count = 0;
-        FOREACH(int, value, Collection, collection)
-            ASSERT(*value == count);
+        FOREACH(int, item, Collection, collection)
+            ASSERT(*item == count);
             count++;
         ENDFOREACH;
         TEST_RESULT_INT(count, testMax, "non-empty list inside Collection");
@@ -291,8 +291,8 @@ testRun(void)
         // Create a Collection within a Collection and verify we can still iterate through it.
         Collection *superCollection = NEWCOLLECTION(Collection, longCollection);
         count = 0;
-        FOREACH(int, value, Collection, superCollection)
-            ASSERT(*value == count);
+        FOREACH(int, item, Collection, superCollection)
+            ASSERT(*item == count);
             count++;
         ENDFOREACH;
         TEST_RESULT_INT(count, testMax, "Collection inside Collection");

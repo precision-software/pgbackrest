@@ -5,31 +5,48 @@
 
 #include "readdir.h"
 
-
-
-
-ReadDirRawItr *
-readDirRawNewItr(ReadDirRaw *container)
+Collection *
+readDirPosix(StorageDriver *driver, String *path, StorageInfoLevel level, StorageSortOrder order, bool followLink)
 {
-    FUNCTION_TEST_BEGIN();
-        FUNCTION_TEST_PARAM(CONTAINER, container);
-    FUNCTION_TEST_END();
+    // Open the directory.
+    int fd = opendir(STRZ(path));
+    if (fd == -1 && errno != xxxx)
+        THROW(xx);
 
-    // Open the posix directory for reading.
-    int fd = opendir(STRZ(container->path));
-    if (fd == -1)
-        if (errno == XXXX) THROW(   );
+    // Create an empty info list.
+    infoList =
 
-    ReadDirRawItr this = NULL;
-    OBJ_NEW_BEGIN(ReadDirRawItr)
+    // If we opened the directory,
+    if (fd != -1)
     {
 
+        // Do for each entry in the directory.
+        errno = 0;                                                   // Recommended by Posix standard.
+        for (dirent *file; (file=readdir(fd)) != NULL;)
+        {
+            // Skio . and ..
+            if (strCmpZ(file->name, ".") || strCmpZ(file->name, ".."))
+                continue;
 
-        this = OBJ_NEW_ALLOC();
-        *this = (ReadDirRawItr)()
+            // Get file info from the directory entry
+            struct fileInfo = infoFromDirent(dirent);
+
+            // Push the info onto the list
+            infoListAdd(infoList, fileInfo, followLink);
+        }
+
+        // Throw an error if readdir() failed.
+        if (errno != 0)
+            THROW(xxx);
+
+        // Sort the list if order was specified.
+        if (order != Unordered)
+            infoListSort(infoList, order);
+
+        // Return the list as an abstract collection.
+        // Note we want the Collection and the List to be the same memory context.
+        return NEWCOLLECTION(List, infoList);
     }
-    OBJ_NEW_END();
-
 
 
 }
