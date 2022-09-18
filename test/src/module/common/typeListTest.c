@@ -230,7 +230,11 @@ testRun(void)
     if (testBegin("foreach List Iteration")) {
 
         // Create an empty list
+<<<<<<< HEAD
         const List *emptyList = lstNewP(sizeof(int));
+=======
+        List *emptyList = lstNewP(sizeof(int));
+>>>>>>> ListIterator-ci
 
         // Create a long list
         const int testMax = 100;
@@ -264,7 +268,11 @@ testRun(void)
         // Scan the longer list, inside a collection.
         Collection *longCollection = NEWCOLLECTION(List, longList);
         count = 0;
+<<<<<<< HEAD
         FOREACH(int, item, Collection, collection)
+=======
+        FOREACH(int, item, Collection, longCollection)
+>>>>>>> ListIterator-ci
             ASSERT(*item == count);
             count++;
         ENDFOREACH;
@@ -273,14 +281,13 @@ testRun(void)
         // Try to get next() item of an empty list.
         ListItr *itr = listItrNew(emptyList);
         ASSERT(listItrNext(itr) == NULL);
-        ASSERT(ListItrNext(itr) == NULL);
         TEST_RESULT_PTR(listItrNext(itr), NULL, "iterate beyond end of empty List");
         listItrFree(itr);
 
         // Similar, but this time with items in the list.
         itr = listItrNew(longList);  // A second iterator in parallel
         foreach(item, longList)
-            ASSERT(*listItrNext(itr) = *item);
+            ASSERT(*(int *)listItrNext(itr) == *item);
         ASSERT(item == NULL);
         TEST_RESULT_PTR(listItrNext(itr), NULL, "iterate beyond end of List");
         listItrFree(itr);
@@ -304,16 +311,16 @@ testRun(void)
 
         // Verify the destructor gets called on a list with no exceptions.
         eventCount = 0;
-        FOREACH(int, value, List, list)
-            (void) value;
+        FOREACH(int, item, List, longList)
+            (void) item;
         ENDFOREACH;
         TEST_RESULT_INT(eventCount, 1, "destructor invoked after loop ends");
 
         // Throw an exception within a loop and verify the destructor gets called.
         eventCount = 0;
         TRY_BEGIN()
-            FOREACH(int, value, List, list)
-                if (*value > testMax / 2)
+            FOREACH(int, item, List, longList)
+                if (*item > testMax / 2)
                     THROW(FormatError, "");  // Any non-fatal error.
             ENDFOREACH;
         CATCH(FormatError)
@@ -329,10 +336,10 @@ testRun(void)
 A Mocked destructor - to verify we are shutting down correctly. Used by the List iterator tests.
 ***********************************************************************************************************************************/
 #undef listItrFree
-    int eventCount;  // Keep count of interesting test events.
-    void
-    mockListItrFree(ListItr *this)
-    {
-        eventCount++;
-        listItrFree(this);
-    }
+int eventCount;  // Keep count of interesting test events.
+void
+mockListItrFree(ListItr *this)
+{
+    eventCount++;
+    listItrFree(this);
+}
