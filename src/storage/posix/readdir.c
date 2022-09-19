@@ -8,45 +8,23 @@
 Collection *
 readDirPosix(StorageDriver *driver, String *path, StorageInfoLevel level, StorageSortOrder order, bool followLink)
 {
-    // Open the directory.
-    int fd = opendir(STRZ(path));
-    if (fd == -1 && errno != xxxx)
-        THROW(xx);
+    FUNCTION_LOG_BEGIN();
+        FUNCTION_LOG_PARAM(STORAGE_POSIX, this);
+        FUNCTION_LOG_PARAM(STRING, path;
+        FUNCTION_LOG_PARAM(ENUM, level);
+        FUNCTION_LOG_PARAM(ENUM, order);
+        FUNCTION_LOG_PARAM(BOOL, followLink)
+    FUNCTION_LOG_END();
 
-    // Create an empty info list.
-    infoList =
+    // Get the list of files.
+    StorageList *infoList = storagePosixList();
 
-    // If we opened the directory,
-    if (fd != -1)
-    {
+    // Order them as requested.
+    if (order != Unsorted)
+        lstSort(infoList, order);
 
-        // Do for each entry in the directory.
-        errno = 0;                                                   // Recommended by Posix standard.
-        for (dirent *file; (file=readdir(fd)) != NULL;)
-        {
-            // Skio . and ..
-            if (strCmpZ(file->name, ".") || strCmpZ(file->name, ".."))
-                continue;
-
-            // Get file info from the directory entry
-            struct fileInfo = infoFromDirent(dirent);
-
-            // Push the info onto the list
-            infoListAdd(infoList, fileInfo, followLink);
-        }
-
-        // Throw an error if readdir() failed.
-        if (errno != 0)
-            THROW(xxx);
-
-        // Sort the list if order was specified.
-        if (order != Unordered)
-            infoListSort(infoList, order);
-
-        // Return the list as an abstract collection.
-        // Note we want the Collection and the List to be the same memory context.
-        return NEWCOLLECTION(List, infoList);
-    }
-
-
+    // Return the list as an abstract collection.
+    // Note we want the list to be deleted when the collection is deleted
+    Collection *collection = NEWCOLLECTION(List, infoList));
+    FUNCTION_LOG_RETURN(COLLECTION, collection);
 }
