@@ -166,21 +166,6 @@ String *lstToLog(const List *this);
 #define FUNCTION_LOG_LIST_FORMAT(value, buffer, bufferSize)                                                                        \
     FUNCTION_LOG_STRING_OBJECT_FORMAT(value, lstToLog, buffer, bufferSize)
 
-/***********************************************************************************************************************************
-A minimalistic control structure for iterating through lists, modeled after the one in PostgreSQL, but simplified.
-     ItemType *item;
-     foreach(item, list)
-     {
-         doSomething(*item)
-     }
-***********************************************************************************************************************************/
-#define foreach(item, list)                                                                                                        \
-    for (                                                                                                                          \
-        unsigned int foreach_idx = 0;                                                                                              \
-        (item = foreach_idx<lstSize(list)?lstGet(list, foreach_idx):NULL);                                                         \
-        foreach_idx++                                                                                                              \
-    )
-
 
 /***********************************************************************************************************************************
 List Iteration, conforming to the Collection interface.

@@ -252,18 +252,18 @@ testRun(void)
 
         // Scan the empty list.
         int *item;
-        foreach(item, emptyList)
-            ASSERT_MSG("iterating through an empty list");          // {uncoverable - this statement should not be reached}
+        FOREACH(item, List, emptyList)
+            ASSERT_MSG("iterating through an empty list");// {uncoverable - this statement should not be reached}
+        ENDFOREACH;
         ASSERT(item == NULL);
         TEST_RESULT_VOID((void)0, "scan empty list");
 
         // Scan the bigger list.
         int count = 0;
-        foreach(item, longList)
-        {
+        FOREACH(item, List, longList)
             ASSERT(*item == count);
             count++;
-        }
+        ENDFOREACH;
         ASSERT(item == NULL);
         TEST_RESULT_INT(count, testMax, "non-empty List");
 
@@ -294,8 +294,9 @@ testRun(void)
 
         // Similar, but this time with items in the list.
         itr = lstItrNew(longList);  // A second iterator in parallel
-        foreach(item, longList)
+        FOREACH(item, List, longList)
             ASSERT(*(int *)lstItrNext(itr) == *item);
+        ENDFOREACH;
         ASSERT(item == NULL);
         TEST_RESULT_PTR(lstItrNext(itr), NULL, "iterate beyond end of List");
         objFree(itr);

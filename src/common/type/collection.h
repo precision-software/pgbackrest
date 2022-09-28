@@ -56,35 +56,66 @@ CollectionItr *collectionItrNew(Collection *collection);
 void *collectionItrNext(CollectionItr *this);
 
 /***********************************************************************************************************************************
-Syntactic sugar to make iteration looks like C++ or Python.
+Syntactic sugar to make iteration look like C++ or Python.
 Note FOREACH and ENDFOREACH are block macros, so the overall pair must be terminated with a semicolon.
-The macro uses two nexted memory contexts. The outer context contains the iterator and is freed when the loop exits.
-The inner context periodically frees up memory allocated during loop execution to prevent runaway memory leaks.
+
+There are three memory contexts used in FOREACH looping.
+1) The original outer context used to collect results from the loop.
+   It can be accessed with memContextPrior() or MEM_CONTEXT_PRIOR_BEGIN().
+2) The loop control context which holds the iterator (and the collection if the collection arg is a constructor function).
+   This context is invisible to the loop body and should not be accessed.
+3) The loop body context which (logically) is created and destroyed with every loop iteration.
+   As an optimization, the loop body context is created once and reset every n iterations.
+
+This arrangement creates a somewhat complex nesting of memory contexts, but it provides automatic cleanup of memory
+and should simplify code inside the loop as well as in the iterators.
+Consider rewriting with direct calls to memContext routines.
 ***********************************************************************************************************************************/
 #define FOREACH(item, CollectionType, collection)                                                                                  \
-    MEM_CONTEXT_TEMP_BEGIN()                                                                                                       \
-        CollectionType##Itr *FOREACH_itr = METHOD(CollectionType, ItrNew)(collection);                                             \
-        MEM_CONTEXT_TEMP_RESET_BEGIN()                                                                                             \
-            while ( (item = METHOD(CollectionType,ItrNext)(FOREACH_itr)) != NULL)                                                  \
-            {                                                                                                                      \
-                MEM_CONTEXT_TEMP_RESET(1000);
+    BEGIN                                                                                                                          \
+        item = NULL;                                                                                                               \
+        CollectionType *FOREACH_collection = (collection);  /* Be sure to evaluate "collection" only once. */                      \
+        if (FOREACH_collection != NULL) /* Convenience feature - treat a NULL collection as an empty one. */                       \
+        {                                                                                                                          \
+            MEM_CONTEXT_TEMP_BEGIN()  /* Memory context for loop control */                                                        \
+                CollectionType##Itr *FOREACH_itr = METHOD(CollectionType, ItrNew)(FOREACH_collection);                             \
+                MEM_CONTEXT_PRIOR_BEGIN()  /* Hide the loop control memory context */                                              \
+                    MEM_CONTEXT_TEMP_RESET_BEGIN()   /* Memory context for loop body. Optimized to reset every N iterations */     \
+                        while ( (item = METHOD(CollectionType,ItrNext)(FOREACH_itr)) != NULL)                                      \
+                        {
 #define ENDFOREACH                                                                                                                 \
-            }                                                                                                                      \
-        MEM_CONTEXT_TEMP_END();                                                                                                    \
-    MEM_CONTEXT_TEMP_END()
+                            MEM_CONTEXT_TEMP_RESET(FOREACH_RESET_COUNT);                                                           \
+                        }                                                                                                          \
+                   MEM_CONTEXT_TEMP_END();                                                                                         \
+               MEM_CONTEXT_PRIOR_END();                                                                                            \
+           MEM_CONTEXT_TEMP_END();                                                                                                 \
+        }                                                                                                                          \
+    END
+
+#define FOREACH_RESET_COUNT  1000    /* Redefine as needed. */
+
+// A much simpler iteration macro for cases where memory contexts don't matter.
+#define foreach(item, CollectionType, collection) \
+    for (CollectionType##Itr _itr = METHOD(CollectionType,ItrNew)(collection); (item = METHOD(CollectionType,ItrNext)(_itr));)
 
 // Syntactic sugar to get the function name from the object type and the short method name.
 // Used to generate method names for abstract interfaces.
-//    eg.   METHOD(List, Get) -->  listGet
+//    eg.   METHOD(List, Get) --> listGet
 // Note it takes an (obscure) second level of indirection and a "CAMEL_Type" macro to make this work.
 #define METHOD(type, method)  JOIN(CAMEL(type), method)
 #define JOIN(a,b) JOIN_AGAIN(a,b)
 #define JOIN_AGAIN(a, b) a ## b
 
-// We can't really convert to camel case, but we can invoke the symbol CAMEL_<type name> to get it.
+// We can't really convert to camelCase, but we can invoke the symbol CAMEL_<TypeName> to get it.
 // Each of the collection types must provide a CAMEL_* macro to provide the type name in camelCase.
 // In the case of iterators, we append Itr to the collection type, so we don't have to create CAMEL_*Itr.
+// Note we don't have to be strict about camelCase. For example, "CAMEL_StringList" could be defined as "strLst",
+// in which case METHOD(StringList, Move) would become strLstMove.
 #define CAMEL(type) CAMEL_##type
+
+#define BEGIN do {
+#define END   } while (0)
+
 
 /***********************************************************************************************************************************
 Macros for function logging.
