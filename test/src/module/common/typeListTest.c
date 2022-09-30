@@ -268,7 +268,7 @@ testRun(void)
         TEST_RESULT_INT(count, testMax, "non-empty List");
 
         // Scan the empty list, inside a collection
-        Collection *emptyCollection = NEWCOLLECTION(List, emptyList);
+        Collection *emptyCollection = collectionNew(List, emptyList);
         TEST_RESULT_VOID((void)0, "Created collection");
         FOREACH(item, Collection, emptyCollection)
             ASSERT_MSG("iterating through an empty container");     // {uncoverable - this statement should not be reached}
@@ -277,7 +277,7 @@ testRun(void)
         TEST_RESULT_VOID((void)0, "empty list inside Collection");
 
         // Scan the longer list, inside a collection.
-        Collection *longCollection = NEWCOLLECTION(List, longList);
+        Collection *longCollection = collectionNew(List, longList);
         count = 0;
         FOREACH(item, Collection, longCollection)
             ASSERT(*item == count);
@@ -302,10 +302,10 @@ testRun(void)
         objFree(itr);
 
         // Try to create a Collection from NULL list.
-        TEST_ERROR((void)NEWCOLLECTION(List, NULL), AssertError, "assertion 'subCollection != NULL' failed");
+        TEST_ERROR((void)collectionNew(List, NULL), AssertError, "assertion 'subCollection != NULL' failed");
 
         // Create a Collection within a Collection and verify we can still iterate through it.
-        Collection *superCollection = NEWCOLLECTION(Collection, longCollection);
+        Collection *superCollection = collectionNew(Collection, longCollection);
         count = 0;
         FOREACH(item, Collection, superCollection)
             ASSERT(*item == count);

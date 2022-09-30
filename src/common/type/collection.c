@@ -1,5 +1,8 @@
 /***********************************************************************************************************************************
-This file contains more detailed documentation on iterators. It is of interest when creating a new iterator, where
+TODO: this header repeats retVal in collection.h. Clean things up between the two files.
+TODO: break out unit tests into a separate type-collection test.
+
+ This file contains more detailed documentation on iterators. It is of interest when creating a new iterator, where
 the comments in the header file are geared to using existing iterators.
 
 This interface is inspired by the need to iterate through diverse types of storage directories.
@@ -14,8 +17,8 @@ they have two property in common:
     newItr(collection) creates an iterator object for scanning through that particular collection.
     ItrNext(iterator)  finds the next item in the collection, returning NULL if no more.
 
-Compared to similar traits in Rust, a collection implements the "Iterable" interface and and iterator implements the
-"Iterator" trait. The method names are slightly different, but the functionality is essentially the same.
+Compared to similar traits in Rust, a collection implements the "Iterable" interface and an iterator implements the
+"Iterator" trait. The method names are different, but the functionality is essentially the same.
 
 = Naming conventions for specific collections.  (eg "List")
 By convention, Pgbackrest uses camelCase method names, where the type name is followed vy the "short" method name.
@@ -39,7 +42,7 @@ The goals are as follows:
  - create "syntactic sugar" to make it easy to use the new iterators.
    This are the "FOREACH"/"ENDFOREACH" macros.
  - implement an abstract "Collection", wrapping an underlying collection, which iterates the underlying collection.
-   This is the NEWCOLLECTION() macro.
+   This is the collectionNew() macro.
  - maintain performance and memory comparable to scanning through the collections "by hand" (ie not using the interface)
    Partially met. The current implementation dynamically allocates iterators (which could be stack based),and they
    create temporary memory contexts to prevent memory leaks. These steps can reduce efficency, but they avoid some
@@ -54,9 +57,9 @@ Here are some examples of how to iterate through a List.
        doSomething(*item)
    }
 
-== A Lightweight iteration specific to lists.
+== A Lightweight iteration.
    ItemType *item;
-   foreach(item, list)
+   foreach(item, List, list)
        do_something(*item)
 
 == Using the more heavyweight interface, useful for all iterable collections and cleaning up after exceptions.
@@ -118,9 +121,11 @@ Create a new abstract Collection from a specific collection (such as List).
  @param newItr - the collections function for creating an iterator.
  @param next - the collection iterqtor method for selecting the next item.
  @return - abstract Collection containing the original one.
+ TODO: create empty collection if passed NULL.
 ***********************************************************************************************************************************/
-Collection *collectionNew(void *subCollection, void *(*newItr)(void *), void *(*next)(void *))
+Collection *collectionNewHelper(void *subCollection, void *(*newItr)(void *), void *(*next)(void *))
 {
+
         FUNCTION_TEST_BEGIN();
             FUNCTION_TEST_PARAM_P(VOID, subCollection);
             FUNCTION_TEST_PARAM(FUNCTIONP, newItr);

@@ -1,20 +1,31 @@
 /***********************************************************************************************************************************
-Define the interface for an abstract, iterable Collection and provide "syntactic sugar" for scanning across collections which
-implement the "IterNew()" method. For information on how to create an "Iterable" collection, see the "Iterator.c" file.
-These interfaces are inspired by Rust's Collection and Iterable traits.
+Define the interface for an abstract, iterable Collection and provide "syntactic sugar" for scanning across collections.
+For more information on how to create an "Iterable" collection, see the "collection.c" file.
+These interfaces are inspired by Rust's Collection and Iterator traits.
 
-Using "syntactic sugar" to scan a list,
+= Interface Definition
+Each iterable collection "CollectionType" must provide the following:
+  typedef CollectionType                                            // A structure defining the iterable collection
+  typedef CollectionTypeItr                                         // A structure for iterating through the collection
+  iterator = collectionTypeItrNew(CollectionType *collection)       // Create an iterator from the collection.
+  itemPtr = collectionTypeItrNext(iterator)                         // Point to the next item in the collection, NULL when done.
+  #define CAMEL_CollectionType collectionType                       // A macro converting the TypeName to lower camelCase.
+
+= FOREACH looping
+Any collection type which implements the above interface can be scanned using the FOREACH "syntactic sugar".
+For example, to scan a list:
     ItemType *item;
     FOREACH(item, List, list)
         doSomething(*item);
     ENDFOREACH;
 
+= Abstract Collections
 This file also defines an abstract Collection type, which is a wrapper around any iterable collection.
-Once wrapped, the Collection can be passed around and the users don't need to know the details of what type
-of collection is inside.
+Once wrapped, the different types of collections can be passed around and the users don't need to know the details of how
+the underlying collections are implemented.
 
     // Construct an abstract Collection which wraps the List.
-    Collection *collection = NEWCOLLECTION(List, list);
+    Collection *collection = collectionNew(List, list);
 
     // Iterate through the abstract Collection just like any other collection.
     ItemType *item;
@@ -39,37 +50,26 @@ Use a macro front end so we can support polymorphic collections.
 Note we depend on casting between compatible function pointers where return value and arguments must also be compatible.
     (void *  and struct * are compatible)
 ***********************************************************************************************************************************/
-#define NEWCOLLECTION(SubType, subCollection)                                                                                      \
-    collectionNew(                                                                                                                 \
+#define collectionNew(SubType, subCollection)                                                                                      \
+    collectionNewHelper(                                                                                                                 \
         subCollection,                                              /* The collection we are wrapping */                           \
         (void *(*)(void*))METHOD(SubType, ItrNew),                  /* Get an iterator to the collection  */                       \
         (void *(*)(void*))METHOD(SubType, ItrNext)                  /* Get next item using the iterator  */                        \
     )
 
 // Helper to construct an abstract collection.
-Collection *collectionNew(void *subCollection, void *(*newItr)(void*), void *(*next)(void*));
+Collection *collectionNewHelper(void *subCollection, void *(*newItr)(void*), void *(*next)(void*));
 
-// Iterator to scan an abstract Collecton.
+// Define the methods so an abstract Collection implements the Collection Interface.
 typedef struct CollectionItr CollectionItr;
-#define CAMEL_Collection collection
 CollectionItr *collectionItrNew(Collection *collection);
 void *collectionItrNext(CollectionItr *this);
+#define CAMEL_Collection collection
 
 /***********************************************************************************************************************************
 Syntactic sugar to make iteration look like C++ or Python.
-Note FOREACH and ENDFOREACH are block macros, so the overall pair must be terminated with a semicolon.
-
-There are three memory contexts used in FOREACH looping.
-1) The original outer context used to collect results from the loop.
-   It can be accessed with memContextPrior() or MEM_CONTEXT_PRIOR_BEGIN().
-2) The loop control context which holds the iterator (and the collection if the collection arg is a constructor function).
-   This context is invisible to the loop body and should not be accessed.
-3) The loop body context which (logically) is created and destroyed with every loop iteration.
-   As an optimization, the loop body context is created once and reset every n iterations.
-
-This arrangement creates a somewhat complex nesting of memory contexts, but it provides automatic cleanup of memory
-and should simplify code inside the loop as well as in the iterators.
-Consider rewriting with direct calls to memContext routines.
+FOREACH and ENDFOREACH are block macros, so the overall pair must be terminated with a semicolon.
+TODO: Consider rewriting with direct calls to memContext routines.
 ***********************************************************************************************************************************/
 #define FOREACH(item, CollectionType, collection)                                                                                  \
     BEGIN                                                                                                                          \
@@ -94,7 +94,12 @@ Consider rewriting with direct calls to memContext routines.
 
 #define FOREACH_RESET_COUNT  1000    /* Redefine as needed. */
 
-// A much simpler iteration macro for cases where memory contexts don't matter.
+/***********************************************************************************************************************************
+A much simpler iteration macro for cases where memory contexts don't matter. (eg. simple scanning of a list)
+   ItemType *item;
+   foreach(item, List, list)
+       doSomething(*item);
+***********************************************************************************************************************************/
 #define foreach(item, CollectionType, collection) \
     for (CollectionType##Itr _itr = METHOD(CollectionType,ItrNew)(collection); (item = METHOD(CollectionType,ItrNext)(_itr));)
 
@@ -113,6 +118,7 @@ Consider rewriting with direct calls to memContext routines.
 // in which case METHOD(StringList, Move) would become strLstMove.
 #define CAMEL(type) CAMEL_##type
 
+// Universal block macros. Belong in a different file, but for the moment this is the only file which uses them.
 #define BEGIN do {
 #define END   } while (0)
 
