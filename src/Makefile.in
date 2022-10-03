@@ -22,7 +22,7 @@ SRCS_COMMON = \
 	common/io/write.c \
 	common/log.c \
 	common/memContext.c \
-	common/regExp.c \
+	common/StorageScanp.c \
 	common/stackTrace.c \
 	common/time.c \
 	common/type/blob.c \

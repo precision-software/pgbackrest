@@ -308,9 +308,9 @@ Getters/Setters
 ***********************************************************************************************************************************/
 typedef struct StoragePub
 {
-    StringId type;                                                  // Storage type
-    void *driver;                                                   // Storage driver
-    StorageInterface interface;                                     // Storage interface
+    STORAGE_COMMON_MEMBER;                                          // Must be first. Probably should be COMMON, not part of public.
+    StringId type;                                                  // Storage type - Should be part of COMMON_MEMBER.
+    void *driver;                                                   // Storage driver - TODO: isn't driver usually of type Storage?
 } StoragePub;
 
 // Storage driver

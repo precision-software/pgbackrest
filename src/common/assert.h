@@ -36,6 +36,9 @@ Asserts are used in test code to ensure that certain conditions are true.  They 
     #define ASSERT_MSG(message)                                                                                                    \
         THROW_FMT(AssertError, message)
 
+    #define ASSERT_FMT(format, ...)                                                                                                \
+         THROW_FMT(AssertError, format, __VA_ARGS__)
+
     // Declare variables that will be used by later assertions with the goal of making them easier to read and maintain
     #define ASSERT_DECLARE(declaration)                                                                                            \
         declaration
@@ -47,6 +50,7 @@ Asserts are used in test code to ensure that certain conditions are true.  They 
     #define ASSERT(condition)
     #define ASSERT_INLINE(condition)
     #define ASSERT_MSG(message)
+    #define ASSERT_FMT(format, ...)
     #define ASSERT_DECLARE(declaration)
     #define ASSERT_PARAM(param)
 #endif

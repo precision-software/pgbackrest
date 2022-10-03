@@ -145,7 +145,7 @@ storagePosixListEntry(
     FUNCTION_TEST_RETURN_VOID();
 }
 
-static StorageList *
+/*TODO: static*/ StorageList *
 storagePosixList(THIS_VOID, const String *const path, const StorageInfoLevel level, const StorageInterfaceListParam param)
 {
     THIS(StoragePosix);
@@ -529,7 +529,7 @@ storagePosixRemove(THIS_VOID, const String *file, StorageInterfaceRemoveParam pa
 }
 
 /**********************************************************************************************************************************/
-static const StorageInterface storageInterfacePosix =
+static const StorageInterface storageInterfacePosix = (StorageInterface)
 {
     .feature = 1 << storageFeaturePath,
 
