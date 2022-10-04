@@ -202,10 +202,10 @@ collectionItrNext(CollectionItr *this)
 // Display an abstract Collection. For now, just the address of the sub-collection.
 String *collectionToLog(const Collection *this)
 {
-    return this == NULL ? strDup(NULL_STR) : strNewFmt("Collection{.subCollection=%p}", this->subCollection);
+    return strNewFmt("Collection{.subCollection=%p}", this->subCollection);
 }
 
 String *collectionItrToLog(const CollectionItr *this)
 {
-    return this == NULL ? strDup(NULL_STR) : strNewFmt("CollectionItr{.subIterator=%p}", this->subIterator);
+    return strNewFmt("CollectionItr{.subIterator=%p}", this->subIterator);
 }

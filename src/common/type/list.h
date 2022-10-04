@@ -166,23 +166,4 @@ String *lstToLog(const List *this);
 #define FUNCTION_LOG_LIST_FORMAT(value, buffer, bufferSize)                                                                        \
     FUNCTION_LOG_STRING_OBJECT_FORMAT(value, lstToLog, buffer, bufferSize)
 
-
-/***********************************************************************************************************************************
-List Iteration, conforming to the Collection interface.
-***********************************************************************************************************************************/
-typedef struct ListItr ListItr;                                     //
-ListItr *lstItrNew(List *list);
-void *lstItrNext(ListItr *this);
-#define CAMEL_List lst
-
-/***********************************************************************************************************************************
-Macros for function logging of ListItr.
-***********************************************************************************************************************************/
-#define FUNCTION_LOG_LIST_ITR_TYPE                                                                                                 \
-    ListItr *
-#define FUNCTION_LOG_LIST_ITR_FORMAT(value, buffer, bufferSize)                                                                    \
-    FUNCTION_LOG_STRING_OBJECT_FORMAT(value, lstItrToLog, buffer, bufferSize)
-String *lstItrToLog(const ListItr *this);
-
-
 #endif // COMMON_TYPE_LIST_H

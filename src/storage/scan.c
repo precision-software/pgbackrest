@@ -82,13 +82,6 @@ storageInfoUpdatePath(StorageInfo *info, String *parentPath)
     return this;
 }
 
-StorageInfo *
-storageInfoClone(StorageInfo *info)
-{
-    return (info == NULL)? NULL: storageInfoUpdatePath(info, NULL);
-}
-
-
 /***** Now we are doing our own thing ***************/
 
 /***********************************************************************************************************************************
@@ -111,7 +104,7 @@ A "helper-iterator" to scan files contained in a single directory.
 typedef struct SubdirItr
 {
     CollectionItr *files;                                           // Iterator scanning each file in directory.
-    StorageInfo *postponed;                                         // Postorder directory output after the contents.
+    StorageInfo *postponedInfo;                                         // Postorder directory output after the contents.
 
     // The following fields are all NULL for the root directory.
     struct SubdirItr *parent;                                       // Pointer to our parent directory iterator.
@@ -124,8 +117,8 @@ typedef struct SubdirItr
 ***********************************************************************************************************************************/
 typedef struct RecursiveScanItr
 {
-    RecursiveScan *scan;                                               // Point to the scan we are doing.
-    SubdirItr *current;                                             // the current subdirectory iterator.
+    RecursiveScan *scan;                                            // Point to the scan we are doing.
+    SubdirItr *current;                                             // the lowest directory of the subdirectory stack.
     StorageInfo *info;                                              // The file info we output last iteration.
     MemContext *ctx;                                                // Memory context of the iterator.
 } RecursiveScanItr;
@@ -146,7 +139,7 @@ recursiveScanNew(Storage *driver, String *path, StorageScanParams param)
             .postOrder = param.sortOrder != sortOrderDesc
         };
 
-        // We know we are recursive, but all our subdirectory queries will not be recursive.
+        // We are recursive, but all our subdirectory queries will not be recursive.
         this->param.recursive = false;
     OBJ_NEW_END();
 
@@ -156,32 +149,33 @@ recursiveScanNew(Storage *driver, String *path, StorageScanParams param)
 /***********************************************************************************************************************************
 Construct a "lazy-container" of files which will be found by scanning through a single subdirectory.
 This constructor is used for recursively scanning through a directory hierarchy.
- @param parent - the current directory
+ @param rootItr - the overall recursive iterator.
+ @param parent - the current directory being scanned
  @param subdirInfo - information about the subdirectory, including its name.
- @return - an object defining the collection of files which will be found by scanning the subdirectory.
+ @return - the subdirectory we are about to scan.
 ***********************************************************************************************************************************/
 static SubdirItr *
 subdirNew(RecursiveScanItr *rootItr, SubdirItr *parent, StorageInfo *info)
 {
-    // Point to the root of our scan.
-    RecursiveScan *root = rootItr->scan;
+    // Point to the high level scan definition.
+    RecursiveScan *scan = rootItr->scan;
 
     SubdirItr *this;
     OBJ_NEW_BEGIN(SubdirItr, .childQty=MEM_CONTEXT_QTY_MAX, .allocQty=MEM_CONTEXT_QTY_MAX)
 
-        // Get the path to this subdirectory.
+        // Get the path to this subdirectory, relative to the start of the scan.
         String *relPath = (parent && info) ? strPathJoin(parent->path, info->name) : NULL;
 
-        // Fetch the collection of files in this subdirectory.
-        String *fullPath = strPathJoin(root->path, relPath);
-        Collection *files = storageScan(root->driver, fullPath, root->param);
+        // Fetch the non-recursive collection of files in this subdirectory. (We set .recursive=false earlier.)
+        String *fullPath = strPathJoin(scan->path, relPath);
+        Collection *files = storageScan(scan->driver, fullPath, scan->param);
         strFree(fullPath);  // Probably not necessary.
 
         // Create the subdirectory helper for iterating through them.
         this = OBJ_NEW_ALLOC();
         *this = (SubdirItr) {
             .files = collectionItrNew(files),
-            .postponed = NULL,
+            .postponedInfo = NULL,
             .parent = parent,
             .path = relPath,
         };
@@ -223,15 +217,16 @@ recursiveScanItrNext(RecursiveScanItr *this)
     this->info = NULL;
 
     // Switch to the loop control context since we are going to allocate memory.
+    // We have to be really careful to free any memory we allocate within the context.
     MEM_CONTEXT_BEGIN(this->ctx)
     
         // Keep moving forward while there are more directories to examine.
-        StorageInfo *info = NULL;
+        StorageInfo *info = NULL;                                   // The next file info we are considering.
+        String *path = NULL;                                        // The path containing the file.
         while (this->current != NULL)
         {
             // Get the next file from the current directory.
-            // TODO: have it return with directory name filled in.
-            // TODO: so we use this->info instead of info, and we free it here before setting it again.
+            path = this->current->path;
             info = collectionItrNext(this->current->files);
 
             // CASE: finished scanning current directory.
@@ -241,53 +236,45 @@ recursiveScanItrNext(RecursiveScanItr *this)
                 SubdirItr *parent = this->current->parent;
                 objFree(this->current);  // was allocated in loop control ctx, so it must be freed.
                 this->current = parent;
-                
-                // If there are no more directories, then we're done scanning.
-                if (this->current == NULL)
-                    break;
 
-                // if an item was postponed earlier, then output it now.  (typically, post-order directory)
-                if (this->current->postponed != NULL) {
-                    info = this->current->postponed;
-                    this->current->postponed = NULL;
+                // If this is post order, then output the postponed directory and path.
+                if (this->current != NULL && this->scan->postOrder)
+                {
+                    path = this->current->path;
+                    info = this->current->postponedInfo;
                     break;
                 }
             }
 
-            // CASE: encountered a subdirectory.
+            // CASE: encountered a new subdirectory.
             else if (info->type == storageTypePath)
             {
-                // If post-order, then postpone processing the directory.
-                if (this->scan->postOrder)
-                    this->current->postponed = info;
+                // Keep track of the latest subdirectory info, so we can do post-order if requested.
+                this->current->postponedInfo = info;
                 
-                // Start scanning the subdirectory.
-                this->current = subdirNew(this, this->current, info);  // Will be freed when we finish scanning this subdir
+                // Start scanning the subdirectory. Will be freed when we finish scanning.
+                this->current = subdirNew(this, this->current, info);
 
-                // If pre-order then output the directory now.
-                if (!this->scan->postOrder) {
-                    info->name = NULL;  // TODO: memory leak? Don't repeat the directory from info and again from current->path.
+                // If pre-order then output the directory path and info now.
+                if (!this->scan->postOrder)
                     break;
-                }
             }
 
-            // OTHERWISE: file or link. Just return the file retVal.
+            // OTHERWISE: file or link. Just output the file and path info.
             else
                 break;
         }
 
-        // At this point, we have found retVal for the next file. The retVal is possibly null.
-        // For our return value, change the retVal name to include the subpath from where we started scanning.
+        // At this point, we have info and path for the next file, and NULL if no more files.
+        // For our return value, change the name to include the subpath from where we started scanning.
         if (info != NULL)
-           this->info = storageInfoUpdatePath(info, this->current->path); // Reminder: Will be freed next iteration.
+           this->info = storageInfoUpdatePath(info, path); // Reminder: Will be freed next iteration.
 
     MEM_CONTEXT_END();
 
-    // Return a pointer to the file retVal. It is stable until the next iteration.
+    // Return file info with augmented name, or NULL if done.
     return this->info;
 }
-
-
 
 /***********************************************************************************************************************************
 As a short term hack, use the List function to get a flat directory for each type of storage.

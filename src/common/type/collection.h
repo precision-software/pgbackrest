@@ -53,8 +53,8 @@ Note we depend on casting between compatible function pointers where return valu
 #define collectionNew(SubType, subCollection)                                                                                      \
     collectionNewHelper(                                                                                                                 \
         subCollection,                                              /* The collection we are wrapping */                           \
-        (void *(*)(void*))METHOD(SubType, ItrNew),                  /* Get an iterator to the collection  */                       \
-        (void *(*)(void*))METHOD(SubType, ItrNext)                  /* Get next item using the iterator  */                        \
+        (void *(*)(void*))METHOD(SubType,ItrNew),                   /* Get an iterator to the collection  */                       \
+        (void *(*)(void*))METHOD(SubType,ItrNext)                   /* Get next item using the iterator  */                        \
     )
 
 // Helper to construct an abstract collection.
@@ -78,7 +78,7 @@ TODO: Consider rewriting with direct calls to memContext routines.
         if (FOREACH_collection != NULL) /* Convenience feature - treat a NULL collection as an empty one. */                       \
         {                                                                                                                          \
             MEM_CONTEXT_TEMP_BEGIN()  /* Memory context for loop control */                                                        \
-                CollectionType##Itr *FOREACH_itr = METHOD(CollectionType, ItrNew)(FOREACH_collection);                             \
+                CollectionType##Itr *FOREACH_itr = METHOD(CollectionType,ItrNew)(FOREACH_collection);                             \
                 MEM_CONTEXT_PRIOR_BEGIN()  /* Hide the loop control memory context */                                              \
                     MEM_CONTEXT_TEMP_RESET_BEGIN()   /* Memory context for loop body. Optimized to reset every N iterations */     \
                         while ( (item = METHOD(CollectionType,ItrNext)(FOREACH_itr)) != NULL)                                      \
@@ -95,17 +95,59 @@ TODO: Consider rewriting with direct calls to memContext routines.
 #define FOREACH_RESET_COUNT  1000    /* Redefine as needed. */
 
 /***********************************************************************************************************************************
-A much simpler iteration macro for cases where memory contexts don't matter. (eg. simple scanning of a list)
+A much simpler iteration macro for classes which implement Size() and Get() methods.
    ItemType *item;
    foreach(item, List, list)
        doSomething(*item);
 ***********************************************************************************************************************************/
-#define foreach(item, CollectionType, collection) \
-    for (CollectionType##Itr _itr = METHOD(CollectionType,ItrNew)(collection); (item = METHOD(CollectionType,ItrNext)(_itr));)
+#define foreach(item, CollectionType, collection)                                                                                  \
+    for (                                                                                                                          \
+        struct {unsigned int idx; CollectionType *col;} _iter = {0, collection};                                                   \
+        (item = (_iter.idx >= METHOD(CollectionType,Size)(_iter.col))                                                             \
+           ? NULL                                                                                                                  \
+           : METHOD(CollectionType,Get)(_iter.col, _iter.idx));                                                                     \
+        _iter.idx++                                                                                                                \
+        )
 
-// Syntactic sugar to get the function name from the object type and the short method name.
+/***********************************************************************************************************************************
+Create the iterable Collection interface for classes which implement Size() and Get().
+***********************************************************************************************************************************/
+#define DEFINE_COLLECTION(CollectionType, ItemType)                                                                                \
+    typedef struct CollectionType##Itr                                                                                             \
+    {                                                                                                                              \
+        unsigned int idx;                                                                                                          \
+        CollectionType *col;                                                                                                       \
+    } CollectionType##Itr;                                                                                                         \
+                                                                                                                                   \
+    FN_INLINE_ALWAYS CollectionType##Itr *                                                                                         \
+    METHOD(CollectionType,ItrNew)(CollectionType *col)                                                                             \
+    {                                                                                                                              \
+        CollectionType##Itr *this;                                                                                                 \
+        OBJ_NEW_BEGIN(CollectionType##Itr)                                                                                         \
+            this = OBJ_NEW_ALLOC();                                                                                                \
+            *this = (CollectionType##Itr) {.idx=0, .col=col};                                                                      \
+        OBJ_NEW_END();                                                                                                             \
+        return this;                                                                                                               \
+    }                                                                                                                              \
+                                                                                                                                   \
+    FN_INLINE_ALWAYS ItemType *                                                                                                    \
+    METHOD(CollectionType,ItrNext)(CollectionType##Itr *this)                                                                      \
+    {                                                                                                                              \
+        ItemType *item = (this->idx >= METHOD(CollectionType,Size)(this->col))                                                     \
+            ? NULL                                                                                                                 \
+            : METHOD(CollectionType,Get)(this->col, this->idx++);                                                                  \
+        return item;                                                                                                               \
+    }                                                                                                                              \
+                                                                                                                                   \
+    FN_INLINE_ALWAYS String *                                                                                                      \
+    METHOD(CollectionType,ItrToLog)(CollectionType##Itr *this)                                                                     \
+    {                                                                                                                              \
+        return strNewFmt("%sItr{idx=%u,col=%p}", #CollectionType, this->idx, this->col);                                           \
+    }
+
+// Syntactic sugar to get the full method name from the object type and the short method name.
 // Used to generate method names for abstract interfaces.
-//    eg.   METHOD(List, Get) --> listGet
+//    eg.   METHOD(List,Get) --> listGet
 // Note it takes an (obscure) second level of indirection and a "CAMEL_Type" macro to make this work.
 #define METHOD(type, method)  JOIN(CAMEL(type), method)
 #define JOIN(a,b) JOIN_AGAIN(a,b)
