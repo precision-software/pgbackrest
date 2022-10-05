@@ -132,6 +132,10 @@ void testScan(Storage *storage, const char *path, const char *testTitle, const c
     MEM_CONTEXT_TEMP_END();
 }
 
+/***********************************************************************************************************************************
+Format the storage info into a usable form for debugging and display.
+TODO: add details according to level.
+***********************************************************************************************************************************/
 String *storageInfoToLog(StorageInfo *this)
 {
     ASSERT(this != NULL);
@@ -155,7 +159,7 @@ String *storageInfoToLog(StorageInfo *this)
             break;
 
         default:
-            ASSERT_FMT("File %s has unexpected type: %d", strZ(this->name), this->type);
+            ASSERT_FMT("File %s has unexpected type: %d", strZ(this->name), (int)this->type);
     }
 
     return str;
