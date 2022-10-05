@@ -571,7 +571,7 @@ backupResumeClean(
                         removeReason = "missing in manifest";
                     else
                     {
-                        const ManifestFile file = manifestFileFind(manifest, manifestName);
+                        ManifestFile file = manifestFileFind(manifest, manifestName);
 
                         if (file.reference != NULL)
                             removeReason = "reference in manifest";
@@ -594,9 +594,13 @@ backupResumeClean(
                                 removeReason = "zero size";
                             else
                             {
-                                manifestFileUpdate(
-                                    manifest, manifestName, file.size, fileResume.sizeRepo, fileResume.checksumSha1, NULL,
-                                    fileResume.checksumPage, fileResume.checksumPageError, fileResume.checksumPageErrorList, 0, 0);
+                                file.sizeRepo = fileResume.sizeRepo;
+                                memcpy(file.checksumSha1, fileResume.checksumSha1, HASH_TYPE_SHA1_SIZE_HEX + 1);
+                                file.checksumPage = fileResume.checksumPage;
+                                file.checksumPageError = fileResume.checksumPageError;
+                                file.checksumPageErrorList = fileResume.checksumPageErrorList;
+
+                                manifestFileUpdate(manifest, &file);
                             }
                         }
                     }
@@ -1170,7 +1174,7 @@ backupJobResult(
 
             while (!pckReadNullP(jobResult))
             {
-                const ManifestFile file = manifestFileFind(manifest, pckReadStrP(jobResult));
+                ManifestFile file = manifestFileFind(manifest, pckReadStrP(jobResult));
                 const BackupCopyResult copyResult = (BackupCopyResult)pckReadU32P(jobResult);
                 const uint64_t copySize = pckReadU64P(jobResult);
                 const uint64_t bundleOffset = pckReadU64P(jobResult);
@@ -1188,7 +1192,7 @@ backupJobResult(
                 // Format log progress
                 String *const logProgress = strNew();
 
-                if (bundleId != 0)
+                if (bundleId != 0 && copyResult != backupCopyResultNoOp)
                     strCatFmt(logProgress, "bundle %" PRIu64 "/%" PRIu64 ", ", bundleId, bundleOffset);
 
                 // Store percentComplete as an integer
@@ -1312,10 +1316,17 @@ backupJobResult(
                     }
 
                     // Update file info and remove any reference to the file's existence in a prior backup
-                    manifestFileUpdate(
-                        manifest, file.name, copySize, repoSize, strZ(copyChecksum), VARSTR(NULL), file.checksumPage,
-                        checksumPageError, checksumPageErrorList != NULL ? jsonFromVar(varNewVarLst(checksumPageErrorList)) : NULL,
-                        bundleId, bundleOffset);
+                    file.size = copySize;
+                    file.sizeRepo = repoSize;
+                    memcpy(file.checksumSha1, strZ(copyChecksum), HASH_TYPE_SHA1_SIZE_HEX + 1);
+                    file.reference = NULL;
+                    file.checksumPageError = checksumPageError;
+                    file.checksumPageErrorList = checksumPageErrorList != NULL ?
+                        jsonFromVar(varNewVarLst(checksumPageErrorList)) : NULL;
+                    file.bundleId = bundleId;
+                    file.bundleOffset = bundleOffset;
+
+                    manifestFileUpdate(manifest, &file);
                 }
             }
 
@@ -1533,22 +1544,25 @@ backupProcessQueue(const BackupData *const backupData, Manifest *const manifest,
         for (unsigned int fileIdx = 0; fileIdx < manifestFileTotal(manifest); fileIdx++)
         {
             const ManifestFilePack *const filePack = manifestFilePackGet(manifest, fileIdx);
-            const ManifestFile file = manifestFileUnpack(manifest, filePack);
-
-            // If the file is a reference it should only be backed up if delta and not zero size
-            if (file.reference != NULL && (!jobData->delta || file.size == 0))
-                continue;
+            ManifestFile file = manifestFileUnpack(manifest, filePack);
 
             // If bundling store zero-length files immediately in the manifest without copying them
             if (jobData->bundle && file.size == 0)
             {
                 LOG_DETAIL_FMT(
                     "store zero-length file %s", strZ(storagePathP(backupData->storagePrimary, manifestPathPg(file.name))));
-                manifestFileUpdate(
-                    manifest, file.name, 0, 0, strZ(HASH_TYPE_SHA1_ZERO_STR), VARSTR(NULL), file.checksumPage, false, NULL, 0, 0);
+
+                memcpy(file.checksumSha1, HASH_TYPE_SHA1_ZERO, HASH_TYPE_SHA1_SIZE_HEX + 1);
+                file.reference = NULL;
+
+                manifestFileUpdate(manifest, &file);
 
                 continue;
             }
+
+            // If the file is a reference it should only be backed up if delta and not zero size
+            if (file.reference != NULL && (!jobData->delta || file.size == 0))
+                continue;
 
             // Is pg_control in the backup?
             if (strEq(file.name, STRDEF(MANIFEST_TARGET_PGDATA "/" PG_PATH_GLOBAL "/" PG_FILE_PGCONTROL)))
@@ -1842,9 +1856,7 @@ backupProcess(
                         const String *const linkDestination = strNewFmt(
                             "../../" MANIFEST_TARGET_PGTBLSPC "/%u", target->tablespaceId);
 
-                        THROW_ON_SYS_ERROR_FMT(
-                            symlink(strZ(linkDestination), strZ(link)) == -1, FileOpenError,
-                            "unable to create symlink '%s' to '%s'", strZ(link), strZ(linkDestination));
+                        storageLinkCreateP(storageRepoWrite(), linkDestination, link);
                     }
                 }
             }
@@ -1955,9 +1967,7 @@ backupProcess(
                         storageRepo(),
                         strNewFmt(STORAGE_REPO_BACKUP "/%s/%s%s", strZ(file.reference), strZ(file.name), compressExt));
 
-                    THROW_ON_SYS_ERROR_FMT(
-                        link(strZ(linkDestination), strZ(linkName)) == -1, FileOpenError,
-                        "unable to create hardlink '%s' to '%s'", strZ(linkName), strZ(linkDestination));
+                    storageLinkCreateP(storageRepoWrite(), linkDestination, linkName, .linkType = storageLinkHard);
                 }
                 // Else log the reference. With delta, it is possible that references may have been removed if a file needed to be
                 // recopied.
