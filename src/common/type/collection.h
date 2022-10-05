@@ -111,6 +111,7 @@ A much simpler iteration macro for classes which implement Size() and Get() meth
 
 /***********************************************************************************************************************************
 Create the iterable Collection interface for classes which implement Size() and Get().
+Experimental - generally prefer to avoid complex macros.
 ***********************************************************************************************************************************/
 #define DEFINE_COLLECTION(CollectionType, ItemType)                                                                                \
     typedef struct CollectionType##Itr                                                                                             \

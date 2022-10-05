@@ -65,6 +65,9 @@ storageLstItrNext(StorageListItr *this)
         : (this->info = storageLstGet(this->list, this->idx++), &this->info);
 }
 
+/***********************************************************************************************************************************
+Add a directory path to the file name in an info structure, creating a new info structure.
+***********************************************************************************************************************************/
 StorageInfo *
 storageInfoUpdatePath(StorageInfo *info, String *parentPath)
 {
@@ -93,6 +96,7 @@ typedef struct RecursiveScan
     String *path;                                                   // Path to the relevant directory
     StorageScanParams param;                                        // Parameters describing the scan.
     bool postOrder;
+    RegExp *regEx;                                                  // Compiled version of param.expression.
 } RecursiveScan;
 
 // Enable use of FOREACH and containerNew().
@@ -104,7 +108,7 @@ A "helper-iterator" to scan files contained in a single directory.
 typedef struct SubdirItr
 {
     CollectionItr *files;                                           // Iterator scanning each file in directory.
-    StorageInfo *postponedInfo;                                         // Postorder directory output after the contents.
+    StorageInfo *postponedInfo;                                     // Postorder directory output after the contents.
 
     // The following fields are all NULL for the root directory.
     struct SubdirItr *parent;                                       // Pointer to our parent directory iterator.
@@ -136,7 +140,8 @@ recursiveScanNew(Storage *driver, String *path, StorageScanParams param)
             .driver = driver,
             .path = strDup(path),
             .param = param,
-            .postOrder = param.sortOrder != sortOrderDesc
+            .postOrder = param.sortOrder != sortOrderDesc,
+            .regEx = (param.expression == NULL)? NULL: regExpNew(param.expression)
         };
 
         // We are recursive, but all our subdirectory queries will not be recursive.
@@ -205,70 +210,71 @@ recursiveScanItrNew(RecursiveScan *scan)
     return this;
 }
 
-/***********************************************************************************************************************************
-Get the next item from the current directory, popping or pushing directories as appropriate.
-***********************************************************************************************************************************/
 static StorageInfo *
 recursiveScanItrNext(RecursiveScanItr *this)
 {
-    // Free up the results from previous iteration.
-    if (this->info != NULL)
-        objFree(this->info);
-    this->info = NULL;
+    MEM_CONTEXT_BEGIN(this->ctx);
 
-    // Switch to the loop control context since we are going to allocate memory.
-    // We have to be really careful to free any memory we allocate within the context.
-    MEM_CONTEXT_BEGIN(this->ctx)
-    
-        // Keep moving forward while there are more directories to examine.
-        StorageInfo *info = NULL;                                   // The next file info we are considering.
-        String *path = NULL;                                        // The path containing the file.
-        while (this->current != NULL)
+        // Repeat until an item matches or we reach end.
+        do
         {
-            // Get the next file from the current directory.
-            path = this->current->path;
-            info = collectionItrNext(this->current->files);
+            // Free up the results from previous iteration.
+            if (this->info != NULL)
+                objFree(this->info);
+            this->info = NULL;
 
-            // CASE: finished scanning current directory.
-            if (info == NULL)
+            // Repeat until we find an entry or there are none
+            StorageInfo *info = NULL;                                       // The next file info we are considering.
+            String * path = NULL;                                           // The corresponding path which contains the file
+            while (this->current != NULL)
             {
-                // Pop the current directory since it is now processed.
-                SubdirItr *parent = this->current->parent;
-                objFree(this->current);  // was allocated in loop control ctx, so it must be freed.
-                this->current = parent;
+                // Get the next file from the current directory.
+                path = this->current->path;
+                info = collectionItrNext(this->current->files);
 
-                // If this is post order, then output the postponed directory and path.
-                if (this->current != NULL && this->scan->postOrder)
+                // CASE: finished scanning current directory.
+                if (info == NULL)
                 {
-                    path = this->current->path;
-                    info = this->current->postponedInfo;
-                    break;
+                    // Pop the current directory since it is now processed.
+                    SubdirItr *parent = this->current->parent;
+                    objFree(this->current);  // was allocated in loop control ctx, so it must be freed.
+                    this->current = parent;
+
+                    // If this is post order, then output the postponed directory and path.
+                    if (this->current != NULL && this->scan->postOrder)
+                    {
+                        path = this->current->path;
+                        info = this->current->postponedInfo;
+                        break;
+                    }
                 }
-            }
 
-            // CASE: encountered a new subdirectory.
-            else if (info->type == storageTypePath)
-            {
-                // Keep track of the latest subdirectory info, so we can do post-order if requested.
-                this->current->postponedInfo = info;
-                
-                // Start scanning the subdirectory. Will be freed when we finish scanning.
-                this->current = subdirNew(this, this->current, info);
+                    // CASE: encountered a new subdirectory.
+                else if (info->type == storageTypePath)
+                {
+                    // Keep track of the latest subdirectory info, so we can do post-order if requested.
+                    this->current->postponedInfo = info;
 
-                // If pre-order then output the directory path and info now.
-                if (!this->scan->postOrder)
+                    // Start scanning the subdirectory. Will be freed when we finish scanning.
+                    this->current = subdirNew(this, this->current, info);
+
+                    // If pre-order then output the directory path and info now.
+                    if (!this->scan->postOrder)
+                        break;
+                }
+
+                    // OTHERWISE: file or link. Just output the file and path info if it matches the regular expression.
+                else
                     break;
             }
 
-            // OTHERWISE: file or link. Just output the file and path info.
-            else
-                break;
-        }
+            // At this point, we have info and path for the next file, and NULL if no more files.
+            // For our return value, change the name to include the subpath from where we started scanning.
+            if (info != NULL)
+                this->info = storageInfoUpdatePath(info, path); // Reminder: Will be freed next iteration.
 
-        // At this point, we have info and path for the next file, and NULL if no more files.
-        // For our return value, change the name to include the subpath from where we started scanning.
-        if (info != NULL)
-           this->info = storageInfoUpdatePath(info, path); // Reminder: Will be freed next iteration.
+        // End "Repeat until an item matches or we reach end"
+        } while (this->info && this->scan->regEx && !regExpMatch(this->scan->regEx, this->info->name));
 
     MEM_CONTEXT_END();
 
@@ -277,23 +283,32 @@ recursiveScanItrNext(RecursiveScanItr *this)
 }
 
 /***********************************************************************************************************************************
-As a short term hack, use the List function to get a flat directory for each type of storage.
+Use the legacy List function to get a list of files from one directory.
 ***********************************************************************************************************************************/
-static Collection *
+static StorageList *
 simpleScan(Storage *this, String *path, StorageScanParams param)
 {
+    // Get a list of file from the directory.
     StorageList *list = storageInterfaceListP(this, path, param.level);
+
+    // If directory wasn't found, pretend it was empty.
+    if (list == NULL)
+        list = storageLstNew(param.level);
+
+    // Sort the directory if requested.
     if (param.sortOrder != sortOrderNone)                           // TODO: push sort decisions into storageLstSort.
         storageLstSort(list, param.sortOrder);
-    Collection *collection = collectionNew(StorageList, list);
-    return collection;
+
+    return list;
 }
 
 Collection *
 storageScan(Storage *this, String *path, struct StorageScanParams param)
 {
-    if (param.recursive)
-        return collectionNew(RecursiveScan, recursiveScanNew(this, path, param));
-    else
-        return simpleScan(this, path, param);
+    // Get the files - recursive or single directory.
+    Collection *files = (param.recursive)
+        ? collectionNew(RecursiveScan, recursiveScanNew(this, path, param))
+        : collectionNew(StorageList, simpleScan(this, path, param));
+
+    return files;
 }

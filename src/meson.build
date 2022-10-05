@@ -47,6 +47,7 @@ src_common = files(
 	'storage/iterator.c',
 	'storage/list.c',
 	'storage/read.c',
+	'storage/scan.c',
 	'storage/storage.c',
 	'storage/write.c',
 )

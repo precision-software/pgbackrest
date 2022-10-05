@@ -91,6 +91,11 @@ testRun(void)
         testScan(storageTest, TEST_PATH "/pg/wideDir", "scan a wide directory", expectedWideDesc, param);
         testScan(storageTest, TEST_PATH "/pg/deepDir", "scan a deep directory", expectedDeepDesc, param);
 
+        TEST_TITLE("With Regular Expression");
+        param.sortOrder = sortOrderAsc; param.expression=strNewZ("^.*/link.*$");
+        testScan(storageTest, TEST_PATH "/pg", "search for link", "badLink/link>,one_of_each/link>", param);
+        param.expression = strNewZ("BADMATCH");
+        testScan(storageTest, TEST_PATH "/pg", "nothing matches pattern", "", param);
     }
 
     FUNCTION_HARNESS_RETURN_VOID();

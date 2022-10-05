@@ -20,16 +20,15 @@ typedef struct StorageScanParams
 {
     VAR_PARAM_HEADER;
     StorageInfoLevel level;                                         // Level of detail about each file
-    bool followLink;                                                // Should we follow links or report their contents
     SortOrder sortOrder;                                            // Order sort the files.
     bool recursive;                                                 // Should we scan subdirectories?
-    // Below are not implemented yet.
     String *expression;                                             // A regular expression to match files we want to keep.
+    // Below are not implemented yet.
     bool errorOnMissing;                                            // Throw an error if a file is missing by the time we scan it.
     bool nullOnMissing;                                             // Return NULL if a file is missing
+    bool followLink;                                                // Should we follow links or report their contents
 } StorageScanParams;
 
-Collection *
-storageScan(Storage *this, String *path, struct StorageScanParams param);
+Collection *storageScan(Storage *this, String *path, struct StorageScanParams param);
 
 #endif //STORAGE_SCAN_H
