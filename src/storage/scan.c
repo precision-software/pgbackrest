@@ -169,7 +169,7 @@ subdirNew(RecursiveScanItr *rootItr, SubdirItr *parent, StorageInfo *info)
     OBJ_NEW_BEGIN(SubdirItr, .childQty=MEM_CONTEXT_QTY_MAX, .allocQty=MEM_CONTEXT_QTY_MAX)
 
         // Get the path to this subdirectory, relative to the start of the scan.
-        String *relPath = (parent && info) ? strPathJoin(parent->path, info->name) : NULL;
+        String *relPath = (parent != NULL) ? strPathJoin(parent->path, info->name) : NULL;
 
         // Fetch the non-recursive collection of files in this subdirectory. (We set .recursive=false earlier.)
         String *fullPath = strPathJoin(scan->path, relPath);
@@ -296,8 +296,7 @@ simpleScan(Storage *this, String *path, StorageScanParams param)
         list = storageLstNew(param.level);
 
     // Sort the directory if requested.
-    if (param.sortOrder != sortOrderNone)                           // TODO: push sort decisions into storageLstSort.
-        storageLstSort(list, param.sortOrder);
+    storageLstSort(list, param.sortOrder);
 
     return list;
 }

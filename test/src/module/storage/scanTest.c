@@ -71,7 +71,7 @@ testRun(void)
     {
 
         TEST_TITLE("Non-recursive scans.");
-        StorageScanParams param = (StorageScanParams) {.recursive=false, .level=storageInfoLevelType, .sortOrder=sortOrderAsc};
+        StorageScanParams param = (StorageScanParams) {.recursive=false};
         testScan(storageTest, TEST_PATH "/pg/emptyDir", "empty directory", "", param);
         testScan(storageTest, TEST_PATH "/pg/one_of_each", "one of each", "dir/,file,link>,pipe*", param);
         testScan(storageTest, TEST_PATH "/pg/wideDir", "scan a wide directory", expectedWide, param);
@@ -96,6 +96,9 @@ testRun(void)
         testScan(storageTest, TEST_PATH "/pg", "search for link", "badLink/link>,one_of_each/link>", param);
         param.expression = strNewZ("BADMATCH");
         testScan(storageTest, TEST_PATH "/pg", "nothing matches pattern", "", param);
+
+        testScan(storageTest, TEST_PATH "/pg/MISSING", "missing directory", "", param);
+        TEST_RESULT_VOID(strPathJoin(NULL, NULL), "strPathJoin(NULL,NULL) is NULL");
     }
 
     FUNCTION_HARNESS_RETURN_VOID();
@@ -159,7 +162,7 @@ String *storageInfoToLog(StorageInfo *this)
             break;
 
         default:
-            ASSERT_FMT("File %s has unexpected type: %d", strZ(this->name), (int)this->type);
+            ASSERT_FMT("File %s has unexpected type: %d", strZ(this->name), (int)this->type); //{uncovered - Unexpected value}
     }
 
     return str;
