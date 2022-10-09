@@ -23,9 +23,9 @@ typedef struct StorageScanParams
     SortOrder sortOrder;                                            // Order sort the files.
     bool recursive;                                                 // Should we scan subdirectories?
     String *expression;                                             // A regular expression to match files we want to keep.
-    // Below are not implemented yet.
     bool errorOnMissing;                                            // Throw an error if a file is missing by the time we scan it.
     bool nullOnMissing;                                             // Return NULL if a file is missing
+    // Not implemented Yet.
     bool followLink;                                                // Should we follow links or report their contents
 } StorageScanParams;
 

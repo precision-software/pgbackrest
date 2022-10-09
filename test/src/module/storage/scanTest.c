@@ -1,5 +1,7 @@
 /***********************************************************************************************************************************
-Test Posix/CIFS Storage
+Test Scanning directories for files.
+
+Verifies the StorageScan wrapper is working correctly. The StorageIterator tests go into more detail.
 ***********************************************************************************************************************************/
 #include "build.auto.h"
 
@@ -35,20 +37,19 @@ const char *expectedWideDesc =
 
 const unsigned int testDeep = 10;
 const char *expectedDeep =
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/file9,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/file8,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/file7,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/file6,dir0/dir1/dir2/dir3/dir4/dir5/dir6/,dir0/dir1/dir2/dir3/dir4/dir5/file5,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/,dir0/dir1/dir2/dir3/dir4/file4,dir0/dir1/dir2/dir3/dir4/,"
-    "dir0/dir1/dir2/dir3/file3,dir0/dir1/dir2/dir3/,dir0/dir1/dir2/file2,dir0/dir1/dir2/,"
-    "dir0/dir1/file1,dir0/dir1/,dir0/file0,dir0/";
+    "dir0/,dir0/dir1/,dir0/dir1/dir2/,dir0/dir1/dir2/dir3/,dir0/dir1/dir2/dir3/dir4/,dir0/dir1/dir2/dir3/dir4/dir5/,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/file9,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/file8,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/file7,dir0/dir1/dir2/dir3/dir4/dir5/dir6/file6,dir0/dir1/dir2/dir3/dir4/dir5/file5,"
+    "dir0/dir1/dir2/dir3/dir4/file4,dir0/dir1/dir2/dir3/file3,dir0/dir1/dir2/file2,dir0/dir1/file1,dir0/file0";
 const char *expectedDeepDesc =
-    "dir0/,dir0/file0,dir0/dir1/,dir0/dir1/file1,dir0/dir1/dir2/,dir0/dir1/dir2/file2,dir0/dir1/dir2/dir3/,"
-    "dir0/dir1/dir2/dir3/file3,dir0/dir1/dir2/dir3/dir4/,dir0/dir1/dir2/dir3/dir4/file4,dir0/dir1/dir2/dir3/dir4/dir5/,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/file5,dir0/dir1/dir2/dir3/dir4/dir5/dir6/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/file6,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/file7,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/file8,"
-    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/file9";
+    "dir0/file0,dir0/dir1/file1,dir0/dir1/dir2/file2,dir0/dir1/dir2/dir3/file3,dir0/dir1/dir2/dir3/dir4/file4,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/file5,dir0/dir1/dir2/dir3/dir4/dir5/dir6/file6,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/file7,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/file8,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/file9,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/,"
+    "dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/,dir0/dir1/dir2/dir3/dir4/dir5/dir6/,dir0/dir1/dir2/dir3/dir4/dir5/,"
+    "dir0/dir1/dir2/dir3/dir4/,dir0/dir1/dir2/dir3/,dir0/dir1/dir2/,dir0/dir1/,dir0/";
  
 
 /***********************************************************************************************************************************
@@ -98,7 +99,8 @@ testRun(void)
         testScan(storageTest, TEST_PATH "/pg", "nothing matches pattern", "", param);
 
         testScan(storageTest, TEST_PATH "/pg/MISSING", "missing directory", "", param);
-        TEST_RESULT_VOID(strPathJoin(NULL, NULL), "strPathJoin(NULL,NULL) is NULL");
+        param.nullOnMissing=true;  // For coverage.
+        testScan(storageTest, TEST_PATH "/pb/MISSING", "missing directory - NULL", "", param);
     }
 
     FUNCTION_HARNESS_RETURN_VOID();
@@ -109,6 +111,9 @@ testRun(void)
 
 String *storageInfoToLog(StorageInfo *this);
 
+/***********************************************************************************************************************************
+Scan the files and verify we scanned the correct files in the correct order.
+***********************************************************************************************************************************/
 void testScan(Storage *storage, const char *path, const char *testTitle, const char *expected, StorageScanParams param)
 {
     MEM_CONTEXT_TEMP_BEGIN()
@@ -119,9 +124,11 @@ void testScan(Storage *storage, const char *path, const char *testTitle, const c
     if (param.sortOrder == sortOrderNone)
         param.sortOrder = sortOrderAsc;
 
+    // Define the scan and get a collection of files.
     Collection *actualList = storageScan(storage, strNewZ(path), param);
     ASSERT(actualList != NULL);
 
+    // Join the file info into a comma separated string.
     String *actual = strNew();
     StorageInfo *info;
     FOREACH(info, Collection, actualList)
@@ -130,6 +137,7 @@ void testScan(Storage *storage, const char *path, const char *testTitle, const c
         strCat(actual, storageInfoToLog(info));
     ENDFOREACH;
 
+    // Verify we go the expected string.
     TEST_RESULT_STR(actual, strNewZ(expected), testTitle);
 
     MEM_CONTEXT_TEMP_END();
@@ -137,9 +145,10 @@ void testScan(Storage *storage, const char *path, const char *testTitle, const c
 
 /***********************************************************************************************************************************
 Format the storage info into a usable form for debugging and display.
-TODO: add details according to level.
+TODO: add details according to level. Might be useful for log formatting. Similar code in storage iterator test.
 ***********************************************************************************************************************************/
-String *storageInfoToLog(StorageInfo *this)
+String *
+storageInfoToLog(StorageInfo *this)
 {
     ASSERT(this != NULL);
     String *str;
@@ -168,7 +177,15 @@ String *storageInfoToLog(StorageInfo *this)
     return str;
 }
 
-
+/***********************************************************************************************************************************
+Create a hierarchy of test files.
+     pg/
+       one_of_each/     contains one example of each type of file
+       emptyDir/
+       wideDir/         contains a bunch of files but no subdirectories
+       deepDir/         deeply nested subdirectories, each holding one data file.
+       badLink/link     an invalid symbolic link
+ **********************************************************************************************************************************/
 void createFiles(Storage *storage)
 {
     (void)storage;  // Not used.
@@ -205,127 +222,3 @@ void createFiles(Storage *storage)
     HRN_SYSTEM("mkdir -p " TEST_PATH "/pg/badLink");
     HRN_SYSTEM("ln -s ../BOGUS " TEST_PATH "/pg/badlink/link");
 }
-
-#ifdef XXXX
-// -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("path missing");
-
-        TEST_ERROR_FMT(
-                StorageScanP(storageTest, STRDEF(BOGUS_STR), .errorOnMissing = true), PathMissingError,
-                STORAGE_ERROR_LIST_INFO_MISSING, TEST_PATH "/BOGUS");
-
-        TEST_RESULT_PTR(storageNewItrP(storageTest, STRDEF(BOGUS_STR), .nullOnMissing = true), NULL, "ignore missing dir");
-
-        // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("path with only dot");
-
-        storagePathCreateP(storageTest, STRDEF("pg"), .mode = 0766);
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "./ {u=" TEST_USER ", g=" TEST_GROUP ", m=0766}\n",
-                .level = storageInfoLevelDetail, .includeDot = true);
-
-        // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("path with file, link, pipe");
-
-#ifdef TEST_CONTAINER_REQUIRED
-        storagePathCreateP(storageTest, STRDEF("pg/.include"), .mode = 0755);
-    HRN_SYSTEM("sudo chown 77777:77777 " TEST_PATH "/pg/.include");
-#endif // TEST_CONTAINER_REQUIRED
-
-        storagePutP(
-                storageNewWriteP(storageTest, STRDEF("pg/file"), .modeFile = 0660, .timeModified = 1656433838), BUFSTRDEF("TESTDATA"));
-
-        HRN_SYSTEM("ln -s ../file " TEST_PATH "/pg/link");
-        HRN_SYSTEM("mkfifo -m 777 " TEST_PATH "/pg/pipe");
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "./ {u=" TEST_USER ", g=" TEST_GROUP ", m=0766}\n"
-#ifdef TEST_CONTAINER_REQUIRED
-                ".include/ {u=77777, g=77777, m=0755}\n"
-#endif // TEST_CONTAINER_REQUIRED
-                "file {s=8, t=1656433838, u=" TEST_USER ", g=" TEST_GROUP ", m=0660}\n"
-                "link> {d=../file, u=" TEST_USER ", g=" TEST_GROUP "}\n"
-                "pipe*\n",
-                .level = storageInfoLevelDetail, .includeDot = true);
-
-#ifdef TEST_CONTAINER_REQUIRED
-        HRN_SYSTEM("sudo rmdir " TEST_PATH "/pg/.include");
-#endif // TEST_CONTAINER_REQUIRED
- // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("path - recurse desc");
-
-        storagePathCreateP(storageTest, STRDEF("pg/path"), .mode = 0700);
-        storagePutP(
-                storageNewWriteP(storageTest, STRDEF("pg/path/file"), .modeFile = 0600, .timeModified = 1656434296),
-        BUFSTRDEF("TESTDATA"));
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "pipe*\n"
-                "path/file {s=8, t=1656434296}\n"
-                "path/\n"
-                "link> {d=../file}\n"
-                "file {s=8, t=1656433838}\n"
-                "./\n",
-                .level = storageInfoLevelBasic, .includeDot = true, .sortOrder = sortOrderDesc);
-
-        // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("path - recurse asc");
-
-        // Create a path with a subpath that will always be last to make sure lists are not freed too early in the iterator
-        storagePathCreateP(storageTest, STRDEF("pg/zzz/yyy"), .mode = 0700);
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "./\n"
-                "file {s=8, t=1656433838}\n"
-                "link> {d=../file}\n"
-                "path/\n"
-                "path/file {s=8, t=1656434296}\n"
-                "pipe*\n"
-                "zzz/\n"
-                "zzz/yyy/\n",
-                .level = storageInfoLevelBasic, .includeDot = true);
-
-        // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("path basic info - recurse");
-
-        //storageTest->pub.interface.feature ^= 1 << storageFeatureInfoDetail;
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "zzz/yyy/\n"
-                "zzz/\n"
-                "pipe*\n"
-                "path/file {s=8, t=1656434296}\n"
-                "path/\n"
-                "link> {d=../file}\n"
-                "file {s=8, t=1656433838}\n"
-                "./\n",
-                .levelForce = true, .includeDot = true, .sortOrder = sortOrderDesc);
-
-        // storageTest->pub.interface.feature ^= 1 << storageFeatureInfoDetail;
-
-        // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("empty path - filter");
-
-        storagePathCreateP(storageTest, STRDEF("pg/empty"), .mode = 0700);
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "empty/\n",
-                .level = storageInfoLevelType, .expression = "^empty");
-
-        // -------------------------------------------------------------------------------------------------------------------------
-        TEST_TITLE("filter in subpath during recursion");
-
-        TEST_STORAGE_LIST(
-                storageTest, "pg",
-                "path/file {s=8, t=1656434296}\n",
-                .level = storageInfoLevelBasic, .expression = "\\/file$");
-            }
-}
-#endif // XXXX
