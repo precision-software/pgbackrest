@@ -7,6 +7,7 @@ Recursive scan of a directory.
 #include "storage/storage.h"
 #include "storage/list.h"
 #include "storage/info.h"
+#include "common/type/collection.h"
 #include "common/type/string.h"
 #include "common/type/object.h"
 
@@ -34,36 +35,9 @@ strPathJoin(const String *path, const String *subPath)
     return joined;
 }
 
-/*** belongs in storage/list.h. Enables iterating through StorageList **********/
-
-// Convert StorageList to an abstract Collection.
+// Enable StorageList as a Collection.
 #define CAMEL_StorageList storageLst
-typedef struct StorageListItr
-{
-    StorageList *list;
-    unsigned int idx;
-    StorageInfo info;
-}StorageListItr;
-
-StorageListItr *
-storageLstItrNew(StorageList *list)
-{
-    StorageListItr *this;
-    OBJ_NEW_BEGIN(StorageListItr, .childQty=MEM_CONTEXT_QTY_MAX, .allocQty=MEM_CONTEXT_QTY_MAX);
-        this = OBJ_NEW_ALLOC();
-        *this = (StorageListItr){.list=list, .idx=0};
-    OBJ_NEW_END();
-
-    return this;
-}
-
-StorageInfo *
-storageLstItrNext(StorageListItr *this)
-{
-    return (this->idx >= storageLstSize(this->list))
-        ? NULL
-        : (this->info = storageLstGet(this->list, this->idx++), &this->info);
-}
+DEFINE_LIST_COLLECTION(StorageInfo, StorageList);
 
 /***********************************************************************************************************************************
 Add a directory path to the file name in an info structure, creating a new info structure.
@@ -152,17 +126,17 @@ recursiveScanNew(Storage *driver, String *path, StorageScanParams param)
 }
 
 /***********************************************************************************************************************************
-Construct a "lazy-container" of files which will be found by scanning through a single subdirectory.
+Construct a helper "lazy-container" of files from a single subdirectory.
 This constructor is used for recursively scanning through a directory hierarchy.
  @param rootItr - the overall recursive iterator.
- @param parent - the current directory being scanned
- @param subdirInfo - information about the subdirectory, including its name.
+ @param parent - parent of the current directory being scanned
+ @param subdirInfo - file information about the subdirectory, including its name.
  @return - the subdirectory we are about to scan.
 ***********************************************************************************************************************************/
 static SubdirItr *
 subdirNew(RecursiveScanItr *rootItr, SubdirItr *parent, StorageInfo *info)
 {
-    // Point to the high level scan definition.
+    // Point to the original scan definition.
     RecursiveScan *scan = rootItr->scan;
 
     SubdirItr *this;
@@ -218,14 +192,14 @@ recursiveScanItrNext(RecursiveScanItr *this)
         // Repeat until an item matches or we reach end.
         do
         {
-            // Free up the results from previous iteration.
+            // Free up the results from previous iteration. TODO: Use truncate/append trick instead.
             if (this->info != NULL)
                 objFree(this->info);
             this->info = NULL;
 
             // Repeat until we find an entry or there are none
             StorageInfo *info = NULL;                                       // The next file info we are considering.
-            String * path = NULL;                                           // The corresponding path which contains the file
+            String *path = NULL;                                           // The corresponding path which contains the file
             while (this->current != NULL)
             {
                 // Get the next file from the current directory.

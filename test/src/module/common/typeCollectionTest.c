@@ -2,19 +2,35 @@
 
 **********/
 #include "common/type/collection.h"
-
 #include "common/type/list.h"
 
-// Create the iterable Collection interface for a List.
-#define CAMEL_List lst
-DEFINE_COLLECTION(List, void)
 
 /***********************************************************************************************************************************
-Hack so the list iterator will call back when its memory is freed.
+Create a test collection which returns a range of unsigned integers 0..n
 ***********************************************************************************************************************************/
-#define lstItrNew callbackItrNew                                    // invoke callbackItrNew rather than lstItrNew
+typedef struct Range
+{
+    unsigned int size;
+} Range;
+#define CAMEL_Range range
+Range* rangeNew(unsigned int size)
+{
+    Range *this;
+    OBJ_NEW_BEGIN(Range);
+        {
+            this = OBJ_NEW_ALLOC();
+            *this = (Range){.size=size};
+        }
+    OBJ_NEW_END();
+    return this;
+}
+unsigned int rangeGet(Range *this, unsigned int idx) {(void)this; return idx;}
+unsigned int rangeSize(Range *this) {return this->size;}
+DEFINE_LIST_COLLECTION(unsigned, Range);
+
+#define rangeItrNew callbackItrNew                                  // invoke callbackItrNew rather than lstItrNew
 int eventCount;                                                     // Counter is incremented by the callback.
-ListItr *callbackItrNew(List *list);                                // Forward reference.
+RangeItr *callbackItrNew(Range *range);                             // Forward reference.
 
 /***********************************************************************************************************************************
 Test Run
@@ -25,139 +41,137 @@ testRun(void)
     FUNCTION_HARNESS_VOID();
 
     const int testMax = 100;
-    int *item;
-    List *emptyList;
-    List *longList;
+    unsigned int *item;
+    Range *emptyRange;
+    Range *longRange;
     Collection *emptyCollection;
     Collection *longCollection;
+    unsigned int count;
+
 
     if (testBegin("setup collections"))
     {
-        // Create an empty list
-        emptyList = lstNewP(sizeof(int));
-
-        // Create a long list
-        longList = lstNewP(sizeof(int));
-        for (int listIdx = 0; listIdx < testMax; listIdx++)
-            lstAdd(longList, &listIdx);
-        ASSERT(lstSize(longList) == (unsigned int) testMax);
-
-        emptyCollection = collectionNew(List, emptyList);
-        longCollection = collectionNew(List, longList);
+        // Create an empty Range
+        emptyRange = rangeNew(0);
+        longRange = rangeNew(100);
+        emptyCollection = collectionNew(Range, emptyRange);
+        longCollection = collectionNew(Range, longRange);
     }
 
     /******************************************************************************************************************************/
-    if (testBegin("foreach List Iteration"))
+    if (testBegin("foreach Range Iteration"))
     {
-        // Scan the empty list.
-        foreach(item, List, emptyList)
-            ASSERT_MSG("iterating through an empty list");// {uncoverable - this statement should not be reached}
+        // Scan the empty Range.
+        foreach(unsigned, item, Range, emptyRange)
+            ASSERT_MSG("iterating through an empty Range");// {uncoverable - this statement should not be reached}
 
         ASSERT(item == NULL);
-        TEST_RESULT_VOID((void) 0, "scan empty list");
+        TEST_RESULT_VOID((void)0, "scan empty Range");
 
-        // Scan the bigger list.
-        int count = 0;
-        foreach(item, List, longList)
+        // Scan the bigger Range.
+        count = 0;
+        foreach(unsigned, item, Range, longRange)
         {
             ASSERT(*item == count);
             count++;
         }
         ASSERT(item == NULL);
-        TEST_RESULT_INT(count, testMax, "non-empty List");
+        TEST_RESULT_INT(count, testMax, "non-empty Range");
     }
 
-    if (testBegin("FOREACH List iteration"))
+    if (testBegin("FOREACH Range iteration"))
     {
-        // Scan the empty list,
-        FOREACH(item, List, emptyList)
+        // Scan the empty Range,
+        FOREACH(item, Range, emptyRange)
             ASSERT_MSG("iterating through an empty container");     // {uncoverable - this statement should not be reached}
         ENDFOREACH;
 
         ASSERT(item == NULL);
-        TEST_RESULT_VOID((void)0, "empty list ");
+        TEST_RESULT_VOID((void)0, "empty Range ");
 
-        // Scan the longer list, inside a collection.
-        int count = 0;
-        FOREACH(item, List, longList)
+        // Scan the longer Range, inside a collection.
+        count = 0;
+        FOREACH(item, Range, longRange)
             ASSERT(*item == count);
             count++;
         ENDFOREACH;
 
         ASSERT(item == NULL);
-        TEST_RESULT_INT(count, testMax, "non-empty list inside Collection");
 
-        // Try to get next() item of an empty list.
-        ListItr *itr = lstItrNew(emptyList);
-        ASSERT(lstItrNext(itr) == NULL);
-        TEST_RESULT_PTR(lstItrNext(itr), NULL, "iterate beyond end of empty List");
+        TEST_RESULT_INT(count, testMax, "non-empty Range inside Collection");
+
+        // Try to get next() item of an empty Range.
+        RangeItr *itr = rangeItrNew(emptyRange);
+        ASSERT(rangeItrNext(itr) == NULL);
+        TEST_RESULT_PTR(rangeItrNext(itr), NULL, "iterate beyond end of empty Range");
         objFree(itr);
 
-        // Similar, but this time with items in the list.
-        itr = lstItrNew(longList);  // A second iterator in parallel
-        FOREACH(item, List, longList)
-            ASSERT(*(int *)lstItrNext(itr) == *item);
+        // Similar, but this time with items in the Range.
+        itr = rangeItrNew(longRange);  // A second iterator in parallel
+        FOREACH(item, Range, longRange)
+            ASSERT(*rangeItrNext(itr) == *item);
         ENDFOREACH;
 
         ASSERT(item == NULL);
-        TEST_RESULT_PTR(lstItrNext(itr), NULL, "iterate beyond end of List");
+        TEST_RESULT_PTR(rangeItrNext(itr), NULL, "iterate beyond end of Range");
         objFree(itr);
     }
 
     if (testBegin("FOREACH Collection iteration"))
     {
-        // Scan the empty list, inside a collection
+        // Scan the empty Range, inside a collection
         FOREACH(item, Collection, emptyCollection)
             ASSERT_MSG("iterating through an empty container");     // {uncoverable - this statement should not be reached}
         ENDFOREACH;
 
         ASSERT(item == NULL);
-        TEST_RESULT_VOID((void)0, "empty list inside Collection");
+        TEST_RESULT_VOID((void)0, "empty Range inside Collection");
 
-        // Scan the longer list, inside a collection.
-        int count = 0;
+        // Scan the longer Range, inside a collection.
+        count = 0;
         FOREACH(item, Collection, longCollection)
             ASSERT(*item == count);
             count++;
         ENDFOREACH;
 
-        ASSERT(item == NULL);
-        TEST_RESULT_INT(count, testMax, "non-empty list inside Collection");
+        ASSERT(item
+        == NULL);
+        TEST_RESULT_INT(count, testMax, "non-empty Range inside Collection");
 
-        // Try to get next() item of an empty list.
+        // Try to get next() item of an empty Range.
         CollectionItr *itr = collectionItrNew(emptyCollection);
         ASSERT(collectionItrNext(itr) == NULL);
-        TEST_RESULT_PTR(collectionItrNext(itr), NULL, "iterate beyond end of empty List");
+        TEST_RESULT_PTR(collectionItrNext(itr), NULL, "iterate beyond end of empty Range");
         objFree(itr);
 
-        // Similar, but this time with items in the list.
+        // Similar, but this time with items in the Range.
         itr = collectionItrNew(longCollection);  // A second iterator in parallel
-        FOREACH(item, List, longList)
-            ASSERT(*(int *) collectionItrNext(itr) == *item);
+        FOREACH(item, Range, longRange)
+            ASSERT(*(unsigned int*)collectionItrNext(itr) == *item);
         ENDFOREACH;
 
         ASSERT(item == NULL);
-        TEST_RESULT_PTR(collectionItrNext(itr), NULL, "iterate beyond end of List");
+        TEST_RESULT_PTR(collectionItrNext(itr), NULL, "iterate beyond end of Range");
         objFree(itr);
 
-        // Try to create a Collection from NULL list.
-        TEST_ERROR((void) collectionNew(List, NULL), AssertError, "assertion 'subCollection != NULL' failed");
+        // Try to create a Collection from NULL Range.
+        TEST_ERROR((void) collectionNew(Range, NULL), AssertError, "assertion 'subCollection != NULL' failed");
 
         // Create a Collection within a Collection and verify we can still iterate through it.
         Collection *superCollection = collectionNew(Collection, longCollection);
         count = 0;
         FOREACH(item, Collection, superCollection)
-                                ASSERT(*item == count);
-                                count++;
+            ASSERT(*item == count);
+            count++;
         ENDFOREACH;
         TEST_RESULT_INT(count, testMax, "Collection inside Collection");
     }
 
     if (testBegin("destructors invoked"))
     {
-        // Verify the destructor gets called on a list with no exceptions.
+        // Verify the destructor gets called on a Range with no exceptions.
         eventCount = 0;
-        FOREACH(item, List, longList)
+        FOREACH(item, Range, longRange)
         ENDFOREACH;
 
         TEST_RESULT_INT(eventCount, 1, "destructor invoked after loop ends");
@@ -165,13 +179,14 @@ testRun(void)
         // Throw an exception within a loop and verify the destructor gets called.
         eventCount = 0;
         TRY_BEGIN()
-            FOREACH(item, List, longList)
+            FOREACH(item, Range, longRange)
                 if (*item > testMax / 2)
                 THROW(FormatError, "");  // Any non-fatal error.
             ENDFOREACH;
         CATCH(FormatError)
             eventCount++; // An extra increment to verify we catch the error.
         TRY_END();
+
 
         ASSERT(*item = testMax/2 + 1);
         TEST_RESULT_INT(eventCount, 2, "destructor invoked after exception");
@@ -195,15 +210,15 @@ destructor(void *this)
 }
 
 /***********************************************************************************************************************************
-Wrap a list iterator in a context which includes a callback destructor.
+Wrap a Range iterator in a context which includes a callback destructor.
 ***********************************************************************************************************************************/
-#undef lstItrNew
-ListItr *callbackItrNew(List *list)
+#undef rangeItrNew
+RangeItr *callbackItrNew(Range *range)
 {
-    ListItr *this = NULL;
-    OBJ_NEW_BEGIN(ListItr, .callbackQty=1, .childQty=1)
+    RangeItr *this = NULL;
+    OBJ_NEW_BEGIN(RangeItr, .callbackQty=1, .childQty=1)
         {
-            this = lstItrNew(list);
+            this = rangeItrNew(range);
             memContextCallbackSet(memContextCurrent(), destructor, this);
         }
     OBJ_NEW_END();

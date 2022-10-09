@@ -3,33 +3,59 @@ Define the interface for an abstract, iterable Collection and provide "syntactic
 For more information on how to create an "Iterable" collection, see the "collection.c" file.
 These interfaces are inspired by Rust's Collection and Iterator traits.
 
-= Interface Definition
-Each iterable collection "CollectionType" must provide the following:
-  typedef CollectionType                                            // A structure defining the iterable collection
-  typedef CollectionTypeItr                                         // A structure for iterating through the collection
-  iterator = collectionTypeItrNew(CollectionType *collection)       // Create an iterator from the collection.
-  itemPtr = collectionTypeItrNext(iterator)                         // Point to the next item in the collection, NULL when done.
-  #define CAMEL_CollectionType collectionType                       // A macro converting the TypeName to lower camelCase.
+= List Interface
+The simplest iteration is through Lists, where a List is any type which implements the Size() and Get() methods.
 
-= FOREACH looping
-Any collection type which implements the above interface can be scanned using the FOREACH "syntactic sugar".
+To be considered a List, the type must provide
+     unsigned listTypeSize(list);
+     ItemType listTypeGet(list, index);
+     #define CAMEL_ListType  listType
+
+== foreach looping through Lists.
+ListTypes can use the light weight "foreach" macro to scan through a list.
+     String *str;
+     foreach(String, str, StringList, strLst)
+        doSomething(*str)
+
+= Collection Interface
+A Collection is the next level of complexity from List. Collections are iterable and can be scanned from start to finish.
+Each collection type has a companion type CollectionTypeItr which holds the current state of the scan.
+
+To be considered a "Collection", the type must provide the following:
+  typedef CollectionTypeItr;                                        // Definition of the companion iterator type.
+  CollectionTypeItr *iterator = collectionTypeItrNew(CollectionType *collection)       // Create an iterator from the collection.
+  ItemType *item = collectionTypeItrNext(iterator)                  // Point to the next item in the collection, NULL when done.
+  #define CAMEL_CollectionType collectionType                       // A macro converting the TypeName to camelCase.
+
+For convenience, any ListType can be extended to be a CollectionType.
+    DEFINE_LIST_COLLECTION(ItemType, ListType)
+
+== FOREACH looping through Collections.
+Any collection which implements the above interface can be scanned using the FOREACH "syntactic sugar".
 For example, to scan a list:
     ItemType *item;
-    FOREACH(item, List, list)
+    FOREACH(item, ItemList, listOfItems)
         doSomething(*item);
     ENDFOREACH;
 
-= Abstract Collections
-This file also defines an abstract Collection type, which is a wrapper around any iterable collection.
-Once wrapped, the different types of collections can be passed around and the users don't need to know the details of how
-the underlying collections are implemented.
+Unlike List iteration, FOREACH iteration manages memory contexts as it iterates.
+ 1) "Prior" context is the context which exists outside the loop.
+ 2) "Loop Control" context contains the iterator itself and is destroyed when the loop exits. It is hidden from the loop body.
+ 3) "Loop" context is a temporary context which is created and destroyed with every loop iteration.
 
-    // Construct an abstract Collection which wraps the List.
-    Collection *collection = collectionNew(List, list);
+(Note: actual implementation differs; the "Loop" context is periodically reset rather than created/destroyed.)
+
+= Abstract Collections.
+This file also defines an abstract Collection, which is a wrapper around any iterable collection.
+Once wrapped, the different types of collections can be passed around and the users don't need to know the details of how
+the underlying collection is implemented.
+
+    // Construct an abstract Collection from a collection of information about files.
+    Collection *fileCollection = collectionNew(ListType, list);
 
     // Iterate through the abstract Collection just like any other collection.
     ItemType *item;
-    FOREACH(item, Collection, collection)
+    FOREACH(item, Collection, fileCollection)
         doSomething(*item)
     ENDFOREACH;
 ***********************************************************************************************************************************/
@@ -51,7 +77,7 @@ Note we depend on casting between compatible function pointers where return valu
     (void *  and struct * are compatible)
 ***********************************************************************************************************************************/
 #define collectionNew(SubType, subCollection)                                                                                      \
-    collectionNewHelper(                                                                                                                 \
+    collectionNewHelper(                                                                                                           \
         subCollection,                                              /* The collection we are wrapping */                           \
         (void *(*)(void*))METHOD(SubType,ItrNew),                   /* Get an iterator to the collection  */                       \
         (void *(*)(void*))METHOD(SubType,ItrNext)                   /* Get next item using the iterator  */                        \
@@ -78,10 +104,10 @@ TODO: Consider rewriting with direct calls to memContext routines.
         if (FOREACH_collection != NULL) /* Convenience feature - treat a NULL collection as an empty one. */                       \
         {                                                                                                                          \
             MEM_CONTEXT_TEMP_BEGIN()  /* Memory context for loop control */                                                        \
-                CollectionType##Itr *FOREACH_itr = METHOD(CollectionType,ItrNew)(FOREACH_collection);                             \
+                CollectionType##Itr *FOREACH_itr = METHOD(CollectionType,ItrNew)(FOREACH_collection);                              \
                 MEM_CONTEXT_PRIOR_BEGIN()  /* Hide the loop control memory context */                                              \
                     MEM_CONTEXT_TEMP_RESET_BEGIN()   /* Memory context for loop body. Optimized to reset every N iterations */     \
-                        while ( (item = METHOD(CollectionType,ItrNext)(FOREACH_itr)) != NULL)                                      \
+                        while ( (item = METHOD(CollectionType,ItrNext)(FOREACH_itr)) != NULL)                               \
                         {
 #define ENDFOREACH                                                                                                                 \
                             MEM_CONTEXT_TEMP_RESET(FOREACH_RESET_COUNT);                                                           \
@@ -95,55 +121,50 @@ TODO: Consider rewriting with direct calls to memContext routines.
 #define FOREACH_RESET_COUNT  1000    /* Redefine as needed. */
 
 /***********************************************************************************************************************************
-A much simpler iteration macro for classes which implement Size() and Get() methods.
+A much simpler iteration macro for List classes which do their own memory context management.
+where a List class implements the Size() and Next() methods.
    ItemType *item;
-   foreach(item, List, list)
+   foreach(ItemType, item, ListType, list)
        doSomething(*item);
 ***********************************************************************************************************************************/
-#define foreach(item, CollectionType, collection)                                                                                  \
-    for (                                                                                                                          \
-        struct {unsigned int idx; CollectionType *col;} _iter = {0, collection};                                                   \
-        (item = (_iter.idx >= METHOD(CollectionType,Size)(_iter.col))                                                             \
-           ? NULL                                                                                                                  \
-           : METHOD(CollectionType,Get)(_iter.col, _iter.idx));                                                                     \
-        _iter.idx++                                                                                                                \
+#define foreach(ItemType, itemP, ListType, list)                                                                                   \
+    for (struct {unsigned int idx; ListType *lst; ItemType item;}_iter = {0, list};                                                \
+        (itemP = (_iter.idx < METHOD(ListType,Size)(_iter.lst))                                                                    \
+            ? (_iter.item=METHOD(ListType,Get)(_iter.lst, _iter.idx++),&_iter.item)                                                \
+            : NULL);                                                                                                               \
         )
 
 /***********************************************************************************************************************************
-Create the iterable Collection interface for classes which implement Size() and Get().
+Create the Collection interface for ListType, where ListType is any class which implements Size() and Next() methods.
+Note "ItemType" must match the type returned by listTypeGet().
 Experimental - generally prefer to avoid complex macros.
 ***********************************************************************************************************************************/
-#define DEFINE_COLLECTION(CollectionType, ItemType)                                                                                \
-    typedef struct CollectionType##Itr                                                                                             \
+#define DEFINE_LIST_COLLECTION(ItemType, ListType)                                                                                 \
+    typedef struct ListType##Itr                                                                                                   \
     {                                                                                                                              \
         unsigned int idx;                                                                                                          \
-        CollectionType *col;                                                                                                       \
-    } CollectionType##Itr;                                                                                                         \
+        ListType *list;                                                                                                            \
+        ItemType item;                                                                                                             \
+    } ListType##Itr;                                                                                                               \
                                                                                                                                    \
-    FN_INLINE_ALWAYS CollectionType##Itr *                                                                                         \
-    METHOD(CollectionType,ItrNew)(CollectionType *col)                                                                             \
+    FN_INLINE_ALWAYS ListType##Itr *                                                                                               \
+    METHOD(ListType,ItrNew)(ListType *list)                                                                                        \
     {                                                                                                                              \
-        CollectionType##Itr *this;                                                                                                 \
-        OBJ_NEW_BEGIN(CollectionType##Itr)                                                                                         \
+        ListType##Itr *this;                                                                                                       \
+        OBJ_NEW_BEGIN(ListType##Itr)                                                                                               \
             this = OBJ_NEW_ALLOC();                                                                                                \
-            *this = (CollectionType##Itr) {.idx=0, .col=col};                                                                      \
+            *this = (ListType##Itr) {.idx=0, .list=list};                                                                          \
         OBJ_NEW_END();                                                                                                             \
         return this;                                                                                                               \
     }                                                                                                                              \
                                                                                                                                    \
     FN_INLINE_ALWAYS ItemType *                                                                                                    \
-    METHOD(CollectionType,ItrNext)(CollectionType##Itr *this)                                                                      \
+    METHOD(ListType,ItrNext)(ListType##Itr *this)                                                                                  \
     {                                                                                                                              \
-        ItemType *item = (this->idx >= METHOD(CollectionType,Size)(this->col))                                                     \
+        ItemType *item = (this->idx >= METHOD(ListType,Size)(this->list))                                                          \
             ? NULL                                                                                                                 \
-            : METHOD(CollectionType,Get)(this->col, this->idx++);                                                                  \
+            : (this->item = METHOD(ListType,Get)(this->list, this->idx++), &this->item);                                           \
         return item;                                                                                                               \
-    }                                                                                                                              \
-                                                                                                                                   \
-    FN_INLINE_ALWAYS String *                                                                                                      \
-    METHOD(CollectionType,ItrToLog)(CollectionType##Itr *this)                                                                     \
-    {                                                                                                                              \
-        return strNewFmt("%sItr{idx=%u,col=%p}", #CollectionType, this->idx, this->col);                                           \
     }
 
 // Syntactic sugar to get the full method name from the object type and the short method name.
