@@ -34,7 +34,6 @@ struct Manifest
 {
     ManifestPub pub;                                                // Publicly accessible variables
     StringList *ownerList;                                          // List of users/groups
-    StringList *referenceList;                                      // List of file references
 
     const String *fileUserDefault;                                  // Default file user name
     const String *fileGroupDefault;                                 // Default file group name
@@ -97,6 +96,9 @@ typedef enum
 {
     manifestFilePackFlagReference,
     manifestFilePackFlagBundle,
+    manifestFilePackFlagCopy,
+    manifestFilePackFlagDelta,
+    manifestFilePackFlagResume,
     manifestFilePackFlagChecksumPage,
     manifestFilePackFlagChecksumPageError,
     manifestFilePackFlagChecksumPageErrorList,
@@ -124,6 +126,15 @@ manifestFilePack(const Manifest *const manifest, const ManifestFile *const file)
 
     // Flags
     uint64_t flag = 0;
+
+    if (file->copy)
+        flag |= 1 << manifestFilePackFlagCopy;
+
+    if (file->delta)
+        flag |= 1 << manifestFilePackFlagDelta;
+
+    if (file->resume)
+        flag |= 1 << manifestFilePackFlagResume;
 
     if (file->checksumPage)
         flag |= 1 << manifestFilePackFlagChecksumPage;
@@ -174,7 +185,7 @@ manifestFilePack(const Manifest *const manifest, const ManifestFile *const file)
     if (file->reference != NULL)
     {
         cvtUInt64ToVarInt128(
-            (uintptr_t)strLstAddIfMissing(manifest->referenceList, file->reference), buffer, &bufferPos, sizeof(buffer));
+            strLstFindIdxP(manifest->pub.referenceList, file->reference, .required = true), buffer, &bufferPos, sizeof(buffer));
     }
 
     // Mode
@@ -251,6 +262,10 @@ manifestFileUnpack(const Manifest *const manifest, const ManifestFilePack *const
     // Flags
     const uint64_t flag = cvtUInt64FromVarInt128((const uint8_t *)filePack, &bufferPos, UINT_MAX);
 
+    result.copy = (flag >> manifestFilePackFlagCopy) & 1;
+    result.delta = (flag >> manifestFilePackFlagDelta) & 1;
+    result.resume = (flag >> manifestFilePackFlagResume) & 1;
+
     // Size
     result.size = cvtUInt64FromVarInt128((const uint8_t *)filePack, &bufferPos, UINT_MAX);
 
@@ -259,7 +274,7 @@ manifestFileUnpack(const Manifest *const manifest, const ManifestFilePack *const
         manifestPackBaseTime - (time_t)cvtInt64FromZigZag(cvtUInt64FromVarInt128((const uint8_t *)filePack, &bufferPos, UINT_MAX));
 
     // Checksum page
-    result.checksumPage = flag & (1 << manifestFilePackFlagChecksumPage) ? true : false;
+    result.checksumPage = (flag >> manifestFilePackFlagChecksumPage) & 1;
 
     // SHA1 checksum
     memcpy(result.checksumSha1, (const uint8_t *)filePack + bufferPos, HASH_TYPE_SHA1_SIZE_HEX + 1);
@@ -267,7 +282,10 @@ manifestFileUnpack(const Manifest *const manifest, const ManifestFilePack *const
 
     // Reference
     if (flag & (1 << manifestFilePackFlagReference))
-        result.reference = (const String *)(uintptr_t)cvtUInt64FromVarInt128((const uint8_t *)filePack, &bufferPos, UINT_MAX);
+    {
+        result.reference = strLstGet(
+            manifest->pub.referenceList, (unsigned int)cvtUInt64FromVarInt128((const uint8_t *)filePack, &bufferPos, UINT_MAX));
+    }
 
     // Mode
     if (flag & (1 << manifestFilePackFlagMode))
@@ -465,9 +483,9 @@ manifestNewInternal(void)
             .linkList = lstNewP(sizeof(ManifestLink), .comparator = lstComparatorStr),
             .pathList = lstNewP(sizeof(ManifestPath), .comparator = lstComparatorStr),
             .targetList = lstNewP(sizeof(ManifestTarget), .comparator = lstComparatorStr),
+            .referenceList = strLstNew(),
         },
         .ownerList = strLstNew(),
-        .referenceList = strLstNew(),
     };
 
     FUNCTION_TEST_RETURN(MANIFEST, this);
@@ -895,6 +913,7 @@ manifestBuildInfo(
             ManifestFile file =
             {
                 .name = manifestName,
+                .copy = true,
                 .mode = info->mode,
                 .user = info->user,
                 .group = info->group,
@@ -902,6 +921,13 @@ manifestBuildInfo(
                 .sizeRepo = info->size,
                 .timestamp = info->timeModified,
             };
+
+            // When bundling zero-length files do not need to be copied
+            if (info->size == 0 && buildData->manifest->pub.data.bundle)
+            {
+                file.copy = false;
+                memcpy(file.checksumSha1, HASH_TYPE_SHA1_ZERO, HASH_TYPE_SHA1_SIZE_HEX + 1);
+            }
 
             // Determine if this file should be page checksummed
             if (dbPath && buildData->checksumPage)
@@ -1402,6 +1428,9 @@ manifestBuildIncr(Manifest *this, const Manifest *manifestPrior, BackupType type
         // Set prior backup label
         this->pub.data.backupLabelPrior = strDup(manifestPrior->pub.data.backupLabel);
 
+        // Copy reference list
+        this->pub.referenceList = strLstDup(manifestPrior->pub.referenceList);
+
         // Set diff/incr backup type
         this->pub.data.backupType = type;
     }
@@ -1484,7 +1513,7 @@ manifestBuildIncr(Manifest *this, const Manifest *manifestPrior, BackupType type
             {
                 const ManifestFile filePrior = manifestFileFind(manifestPrior, file.name);
 
-                if (file.size == filePrior.size && (delta || file.size == 0 || file.timestamp == filePrior.timestamp))
+                if (file.copy && file.size == filePrior.size && (delta || file.size == 0 || file.timestamp == filePrior.timestamp))
                 {
                     file.sizeRepo = filePrior.sizeRepo;
                     memcpy(file.checksumSha1, filePrior.checksumSha1, HASH_TYPE_SHA1_SIZE_HEX + 1);
@@ -1494,6 +1523,12 @@ manifestBuildIncr(Manifest *this, const Manifest *manifestPrior, BackupType type
                     file.checksumPageErrorList = filePrior.checksumPageErrorList;
                     file.bundleId = filePrior.bundleId;
                     file.bundleOffset = filePrior.bundleOffset;
+
+                    // Perform delta if the file size is not zero
+                    file.delta = delta && file.size != 0;
+
+                    // Copy if the file has changed or delta
+                    file.copy = (file.size != 0 && file.timestamp != filePrior.timestamp) || file.delta;
 
                     manifestFileUpdate(this, &file);
                 }
@@ -1635,6 +1670,7 @@ manifestBuildComplete(
 #define MANIFEST_KEY_BACKUP_LSN_START                               "backup-lsn-start"
 #define MANIFEST_KEY_BACKUP_LSN_STOP                                "backup-lsn-stop"
 #define MANIFEST_KEY_BACKUP_PRIOR                                   "backup-prior"
+#define MANIFEST_KEY_BACKUP_REFERENCE                               "backup-reference"
 #define MANIFEST_KEY_BACKUP_TIMESTAMP_COPY_START                    "backup-timestamp-copy-start"
 #define MANIFEST_KEY_BACKUP_TIMESTAMP_START                         "backup-timestamp-start"
 #define MANIFEST_KEY_BACKUP_TIMESTAMP_STOP                          "backup-timestamp-stop"
@@ -1690,6 +1726,7 @@ typedef struct ManifestLoadData
 {
     MemContext *memContext;                                         // Mem context for data needed only during load
     Manifest *manifest;                                             // Manifest info
+    bool referenceListFound;                                        // Was a reference list found?
 
     List *linkFoundList;                                            // Values found in links
     const Variant *linkGroupDefault;                                // Link default group
@@ -1807,7 +1844,12 @@ manifestLoadCallback(void *callbackData, const String *const section, const Stri
 
         // Reference
         if (jsonReadKeyExpectStrId(json, MANIFEST_KEY_REFERENCE))
+        {
             file.reference = jsonReadStr(json);
+
+            if (!loadData->referenceListFound)
+                file.reference = strLstAddIfMissing(manifest->pub.referenceList, file.reference);
+        }
 
         // If "repo-size" is not present in the manifest file, then it is the same as size (i.e. uncompressed) - to save space,
         // the repo-size is only stored in the manifest file if it is different than size.
@@ -2029,6 +2071,11 @@ manifestLoadCallback(void *callbackData, const String *const section, const Stri
                 manifest->pub.data.lsnStop = varStr(jsonToVar(value));
             else if (strEqZ(key, MANIFEST_KEY_BACKUP_PRIOR))
                 manifest->pub.data.backupLabelPrior = varStr(jsonToVar(value));
+            else if (strEqZ(key, MANIFEST_KEY_BACKUP_REFERENCE))
+            {
+                manifest->pub.referenceList = strLstNewSplitZ(varStr(jsonToVar(value)), ",");
+                loadData->referenceListFound = true;
+            }
             else if (strEqZ(key, MANIFEST_KEY_BACKUP_TIMESTAMP_COPY_START))
                 manifest->pub.data.backupTimestampCopyStart = (time_t)varUInt64(jsonToVar(value));
             else if (strEqZ(key, MANIFEST_KEY_BACKUP_TIMESTAMP_START))
@@ -2275,6 +2322,9 @@ manifestSaveCallback(void *const callbackData, const String *const sectionNext, 
                 jsonFromVar(VARSTR(manifest->pub.data.backupLabelPrior)));
         }
 
+        infoSaveValue(
+            infoSaveData, MANIFEST_SECTION_BACKUP, MANIFEST_KEY_BACKUP_REFERENCE,
+            jsonFromVar(VARSTR(strLstJoin(manifest->pub.referenceList, ","))));
         infoSaveValue(
             infoSaveData, MANIFEST_SECTION_BACKUP, MANIFEST_KEY_BACKUP_TIMESTAMP_COPY_START,
             jsonFromVar(VARINT64(manifest->pub.data.backupTimestampCopyStart)));
@@ -3016,6 +3066,7 @@ manifestBackupLabelSet(Manifest *this, const String *backupLabel)
     MEM_CONTEXT_BEGIN(this->pub.memContext)
     {
         this->pub.data.backupLabel = strDup(backupLabel);
+        strLstAdd(this->pub.referenceList, backupLabel);
     }
     MEM_CONTEXT_END();
 

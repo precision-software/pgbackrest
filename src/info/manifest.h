@@ -99,6 +99,9 @@ File type
 typedef struct ManifestFile
 {
     const String *name;                                             // File name (must be first member in struct)
+    bool copy:1;                                                    // Should the file be copied (backup only)?
+    bool delta:1;                                                   // Verify checksum in PGDATA before copying (backup only)?
+    bool resume:1;                                                  // Is the file being resumed (backup only)?
     bool checksumPage:1;                                            // Does this file have page checksums?
     bool checksumPageError:1;                                       // Is there an error in the page checksum?
     mode_t mode;                                                    // File mode
@@ -179,6 +182,7 @@ typedef struct ManifestPub
     List *linkList;                                                 // List of links
     List *pathList;                                                 // List of paths
     List *targetList;                                               // List of targets
+    StringList *referenceList;                                      // List of file references
 } ManifestPub;
 
 // Get/set the cipher subpassphrase
@@ -199,6 +203,13 @@ FN_INLINE_ALWAYS const ManifestData *
 manifestData(const Manifest *const this)
 {
     return &(THIS_PUB(Manifest)->data);
+}
+
+// Get reference list
+FN_INLINE_ALWAYS const StringList *
+manifestReferenceList(const Manifest *const this)
+{
+    return THIS_PUB(Manifest)->referenceList;
 }
 
 // Set backup label
