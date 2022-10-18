@@ -397,7 +397,6 @@ unit:
           - common/lock
 
         depend:
-          - command/backup/pageChecksum
           - common/lock
           - config/common
           - config/config
@@ -804,27 +803,6 @@ unit:
           - command/info/info
 
       # ----------------------------------------------------------------------------------------------------------------------------
-      - name: remote
-        total: 1
-
-        coverage:
-          - command/remote/remote
-
-      # ----------------------------------------------------------------------------------------------------------------------------
-      - name: restore
-        total: 12
-
-        coverage:
-          - command/restore/file
-          - command/restore/protocol
-          - command/restore/restore
-
-        include:
-          - common/user
-          - info/infoBackup
-          - info/manifest
-
-      # ----------------------------------------------------------------------------------------------------------------------------
       - name: backup
         total: 11
 
@@ -839,6 +817,20 @@ unit:
           - info/info
           - info/manifest
           - storage/storage
+
+      # ----------------------------------------------------------------------------------------------------------------------------
+      - name: restore
+        total: 12
+
+        coverage:
+          - command/restore/file
+          - command/restore/protocol
+          - command/restore/restore
+
+        include:
+          - common/user
+          - info/infoBackup
+          - info/manifest
 
       # ----------------------------------------------------------------------------------------------------------------------------
       - name: repo
@@ -871,6 +863,13 @@ unit:
 
         coverage:
           - command/local/local
+
+      # ----------------------------------------------------------------------------------------------------------------------------
+      - name: remote
+        total: 1
+
+        coverage:
+          - command/remote/remote
 
       # ----------------------------------------------------------------------------------------------------------------------------
       - name: exit
